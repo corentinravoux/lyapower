@@ -1,8 +1,8 @@
 import numpy as np
+import os
 from iminuit import Minuit
 import scipy.interpolate
 import power_spectra
-
 
 
 
@@ -52,6 +52,15 @@ def D1(k,mu,q_1,q_2,k_v,a_v,b_v,k_p,matter_power_spectrum):
 def Pl(k):
     """ Put to one since the fitted data is Pf/Pl """
     return(1)
+
+
+def Pl_class(k_array,settings,z,name="class"):
+    import CLASS
+    my_class =CLASS.MyClass(os.getcwd(),settings)
+    kmin,kmax,nb_points = np.log10(np.min(k_array)),np.log10(np.max(k_array)),2*len(k_array)
+    (Power,Transfer,sigma_8) = my_class.write_pk_tk(z,name,kmin=kmin,kmax=kmax,nb_points=nb_points)
+    power = power_spectra.MatterPowerSpectrum(k_array=Power[:,0],power_array=Power[:,1],dimension="1D",specie="matter")
+    return(power)
 
 
 def Pf_model(matter_power_spectrum,non_linear_model="0"):
@@ -141,9 +150,12 @@ def run_hesse(minuit):
 
 
 
-def fitter_k_mu(pf_file,pk_file,minuit_parameters,var,sigma,power_weighted=False,non_linear_model="0",cost_name="least",ncall=100):
+def fitter_k_mu(pf_file,pk_file,minuit_parameters,var,sigma,power_weighted=False,class_dict=None,z_simu=None,non_linear_model="0",cost_name="least",ncall=100):
     power_f = read_pfkmu(pf_file,power_weighted=power_weighted)
-    power_m = read_pk(pk_file,power_weighted=power_weighted)
+    if(pk_file == "class"):
+        power_m = Pl_class(power_f.k_array[0],class_dict,z_simu,name="class")
+    else:
+        power_m = read_pk(pk_file,power_weighted=power_weighted)
     power_m_rebin = rebin_matter_power(power_m.power_array,power_m.k_array,power_f.k_array[0])
     # mask_data([3],k_edge, mu_edge, bincount, pwk, pwmu, power)
     data_x = power_f.k_array

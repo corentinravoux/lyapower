@@ -15,7 +15,6 @@ from matplotlib.pyplot import cm
 
 
 
-
 class PowerSpectrum(object):
     
     
