@@ -21,10 +21,10 @@ def read_pk(filename,power_weighted=False):
 
 
 def rebin_matter_power(power_m,k_m,k_f):
-    print(power_m.shape,k_m.shape)
     power = scipy.interpolate.interp1d(k_m,power_m,bounds_error=False,fill_value=np.nan)
     power_m_rebin = power(k_f)
     return(power_m_rebin)
+
 
 
 
@@ -123,24 +123,25 @@ def cost_function(model,data_x,data_y,data_yerr,cost_name,non_linear_model="0"):
 ### Minuit stuff
 
 
-def run_minuit(data_x,data_y,data_yerr,minuit_parameters,var,sigma,matter_power_spectrum,non_linear_model="0",cost_name="least",ncall=100):
+def run_minuit(data_x,data_y,data_yerr,minuit_parameters,sigma,matter_power_spectrum,non_linear_model="0",cost_name="least",ncall=100,var_minos=None):
     model = Pf_model(matter_power_spectrum,non_linear_model=non_linear_model)
     cost = cost_function(model,data_x,data_y,data_yerr,cost_name,non_linear_model=non_linear_model)
     minuit_parameters.update({"errordef":1, "pedantic":False, "print_level": 0})
     minuit = Minuit(cost,**minuit_parameters)
-    run_migrad(minuit,ncall=ncall)
-    # run_minos(minuit,var,sigma,ncall=ncall)
-    # run_hesse(minuit)
-    return(minuit)
+    print(run_migrad(minuit,ncall=ncall))
+    run_hesse(minuit)
+    run_minos(minuit,sigma,ncall=ncall,var_minos=var_minos)
+    return(minuit,model)
 
-def run_migrad(minuit,ncall=100):
-    minuit.migrad(ncall,resume=True)
+def run_migrad(minuit,ncall=1000):
+    return(minuit.migrad(ncall,resume=True))
 
-def run_minos(minuit,var,sigma,ncall=100):
-    return(minuit.minos(var,sigma,ncall))
+def run_minos(minuit,sigma,ncall=1000,var_minos=None):
+    if(minuit.valid):
+        return(minuit.minos(var=var_minos,sigma=sigma,ncall=ncall))
 
 def run_hesse(minuit):
-    minuit.hesse()
+    return(minuit.hesse())
 
 
 
@@ -150,8 +151,9 @@ def run_hesse(minuit):
 
 
 
-def fitter_k_mu(pf_file,pk_file,minuit_parameters,var,sigma,power_weighted=False,class_dict=None,z_simu=None,non_linear_model="0",cost_name="least",ncall=100):
+def fitter_k_mu(pf_file,pk_file,minuit_parameters,sigma,power_weighted=False,class_dict=None,z_simu=None,non_linear_model="0",cost_name="least",ncall=100,kmax=None,kmin=None,var_minos=None):
     power_f = read_pfkmu(pf_file,power_weighted=power_weighted)
+    power_f.cut_extremum(kmin,kmax)
     if(pk_file == "class"):
         power_m = Pl_class(power_f.k_array[0],class_dict,z_simu,name="class")
     else:
@@ -161,20 +163,47 @@ def fitter_k_mu(pf_file,pk_file,minuit_parameters,var,sigma,power_weighted=False
     data_x = power_f.k_array
     data_y = power_f.power_array / power_m_rebin
     data_yerr = 0.001 * data_y
-    minuit = run_minuit(data_x,data_y,data_yerr,minuit_parameters,var,sigma,power_m,non_linear_model=non_linear_model,cost_name=cost_name,ncall=ncall)
-    return(minuit,power_f,power_m)
+    minuit,model = run_minuit(data_x,data_y,data_yerr,minuit_parameters,sigma,power_m_rebin,non_linear_model=non_linear_model,cost_name=cost_name,ncall=ncall,var_minos=var_minos)
+    return(minuit,power_f,power_m,model)
 
 
+### Plots
 
 
+def plot_fit(minuit,power_f,power_m,model):
+    minuit_params = []
+    print(minuit.params)
+    for i in range(len(minuit.params)):
+        minuit_params.append(minuit.params[i].value)
+    power_m_rebin = rebin_matter_power(power_m.power_array,power_m.k_array,power_f.k_array[0])
+    pf_over_pm_data = power_f.power_array / power_m_rebin
+    pf_over_pm_model = model(power_f.k_array,*minuit_params)
+    power1 = power_spectra.FluxPowerSpectrum(k_array=power_f.k_array,power_array= pf_over_pm_model,dimension="3D")  
+    power1.plot_2d_pk([0.25,0.5,0.75],color=["C1","C2","C3"])
 
 
-def plot(power_f,power_m):
+    power2 = power_spectra.FluxPowerSpectrum(k_array=power_f.k_array,power_array= pf_over_pm_data,dimension="3D")
+    power2.plot_2d_pk([0.25,0.5,0.75],legend=["0.25","0.5","0.75","0.25 - model","0.5 - model","0.75 - model"],ps="x",ls="None",color=["C1","C2","C3"])
+    
+
+
+def plot_pm(power_m):
+    power_m.open_plot()
     power_m.plot_1d_pk()
-    power_m.close_plot()
-    power_f.plot_2d_pk([0.25,0.5,0.75])
+    # power_m.close_plot()
+    
+def plot_pf(power_f):
+    power_f.open_plot()
+    power_f.plot_2d_pk([0.25,0.5,0.75],legend=["0.25","0.5","0.75"])
+    # power_f.close_plot()
 
 
+def plot_pf_pm(power_f,power_m):
+    power_f.open_plot()
+    power_m_rebin = rebin_matter_power(power_m.power_array,power_m.k_array,power_f.k_array[0],ls=None)
+    power_f.power_array = power_f.power_array / power_m_rebin
+    power_f.plot_2d_pk([0.25,0.5,0.75],legend=["0.25","0.5","0.75"],ps="x")
+    # power_f.close_plot()
 
 
 

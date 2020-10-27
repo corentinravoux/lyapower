@@ -78,6 +78,17 @@ class PowerSpectrum(object):
 
 
 
+    def cut_extremum(self,kmin,kmax):
+        mask = np.full(self.power_array.shape,True)
+        if(kmin is not None):
+            mask &= self.k_array[0,:] >= kmin
+        if(kmax is not None):
+            mask &= self.k_array[0,:] <= kmax
+        self.k_array = np.transpose(np.transpose(self.k_array)[mask])
+        self.power_array = self.power_array[mask]
+
+
+
     def plot_1d_pk(self,color=None, ls="-",flux_factor = None,ps =None):
         plt.ylabel("P(k) /(h-3 Mpc3)")
         if(self.h_normalized): plt.xlabel("k (h Mpc-1)")
@@ -86,13 +97,16 @@ class PowerSpectrum(object):
         plt.loglog(self.k_array,self.power_array,marker = ps, linestyle=ls, color=color)        
 
 
-    def plot_2d_pk(self,bin_edges,color=None, ls="-",flux_factor = None,ps =None):
+    def plot_2d_pk(self,bin_edges,color=None, ls="-",flux_factor = None,ps =None,**kwargs):
         bin_start = 0.0
         for i in range(len(bin_edges)):
             mask = (self.k_array[1] < bin_edges[i]) & (self.k_array[1] >= bin_start)
-            plt.loglog(self.k_array[0][mask],self.power_array[mask],marker = ps, linestyle=ls, color=color)
+            c = color[i] if color is not None else None
+            plt.loglog(self.k_array[0][mask],self.power_array[mask],marker = ps, linestyle=ls, color=c)
             bin_start = bin_edges[i]
         plt.ylabel("P(k) /(h-3 Mpc3)")
+        if("legend" in kwargs.keys()):
+            plt.legend(kwargs["legend"])
         if(self.h_normalized): plt.xlabel("k (h Mpc-1)")
         else: plt.xlabel("k (Mpc-1)")
         plt.title("Power spectrum")
@@ -158,12 +172,20 @@ class PowerSpectrum(object):
         fig =plt.gcf()
         fig.close()
 
+    def open_fig(self):
+        fig = plt.figure()
+        return(fig)
+
 
     def save_plot(self,nameout,format_out = "pdf"):
         plt.savefig(nameout,format=format_out)
 
     def close_plot(self):
         plt.close()
+
+    def open_plot(self):
+        plt.figure()
+
         
     def get_k_value(self,k):
         interp = interp1d(self.k_array, self.power_array, bounds_error=True)
