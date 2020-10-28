@@ -11,19 +11,19 @@ import numpy as np
 from scipy.interpolate import interp1d
 import math
 from matplotlib.pyplot import cm
-
+import utils_fitter as utils
 
 
 
 class PowerSpectrum(object):
     
     
-    def __init__(self,k_array=None,power_array=None,file_init=None,size_box=None):
+    def __init__(self,k_array=None,power_array=None,file_init=None,size_box=None,h_normalized=None):
         self.k_array = k_array
         self.power_array = power_array
         self.file_init = file_init
         self.size_box = size_box
-        self.h_normalized = None
+        self.h_normalized = h_normalized
         
 
     @classmethod
@@ -37,7 +37,8 @@ class PowerSpectrum(object):
         #Adjust Fourier convention to match CAMB.
         simk=matpow[1:,0]*scale
         Pk=matpow[1:,1]/scale**3*(2*math.pi)**3
-        return(cls(k_array=simk,power_array=Pk,file_init=name_file,size_box=size_box))
+        h_normalized = True
+        return(cls(k_array=simk,power_array=Pk,file_init=name_file,size_box=size_box,h_normalized=h_normalized))
 
 
     @classmethod
@@ -45,10 +46,9 @@ class PowerSpectrum(object):
         file_power=np.loadtxt(name_file)
         k_array = file_power[1:,0]
         power_array=file_power[1:,1]
-        power = cls(k_array=k_array,power_array=power_array,file_init=name_file,size_box=None)
-        power.h_normalized = True
-        return(power)
-
+        h_normalized = True
+        return(cls(k_array=k_array,power_array=power_array,file_init=name_file,size_box=None,h_normalized = h_normalized))
+        
 
     
     
@@ -88,27 +88,30 @@ class PowerSpectrum(object):
         self.power_array = self.power_array[mask]
 
 
+    def put_label(self,y_label ="P"):
+        if(self.h_normalized): 
+            plt.ylabel(f"{y_label}" + r"[$\rm{h}^{-3}.\rm{Mpc}^3$]")
+            plt.xlabel(r"k [$\rm{h}.\rm{Mpc}^{-1}$]")
+        else:
+            plt.ylabel(f"{y_label}" + r"[$\rm{Mpc}^3$]")
+            plt.xlabel(r"k [$\rm{Mpc}^{-1}$]")
 
-    def plot_1d_pk(self,color=None, ls="-",flux_factor = None,ps =None):
-        plt.ylabel("P(k) /(h-3 Mpc3)")
-        if(self.h_normalized): plt.xlabel("k (h Mpc-1)")
-        else: plt.xlabel("k (Mpc-1)")
+
+    def plot_1d_pk(self,flux_factor = None,**kwargs):
+        self.put_label()
         plt.title("Power spectrum")
-        plt.loglog(self.k_array,self.power_array,marker = ps, linestyle=ls, color=color)        
+        plt.loglog(self.k_array,self.power_array,marker = utils.return_key(kwargs,"ps",None), linestyle= utils.return_key(kwargs,"ls","-"), color=utils.return_key(kwargs,"color",None)) 
 
 
-    def plot_2d_pk(self,bin_edges,color=None, ls="-",flux_factor = None,ps =None,**kwargs):
+    def plot_2d_pk(self,bin_edges,flux_factor = None,**kwargs):
+        self.put_label(utils.return_key(kwargs,"y_label","P"))
         bin_start = 0.0
         for i in range(len(bin_edges)):
             mask = (self.k_array[1] < bin_edges[i]) & (self.k_array[1] >= bin_start)
-            c = color[i] if color is not None else None
-            plt.loglog(self.k_array[0][mask],self.power_array[mask],marker = ps, linestyle=ls, color=c)
+            c = kwargs["color"][i] if "color" in kwargs.keys() else None
+            plt.loglog(self.k_array[0][mask],self.power_array[mask],marker = utils.return_key(kwargs,"ps",None), linestyle= utils.return_key(kwargs,"ls","-"), color=c)
             bin_start = bin_edges[i]
-        plt.ylabel("P(k) /(h-3 Mpc3)")
-        if("legend" in kwargs.keys()):
-            plt.legend(kwargs["legend"])
-        if(self.h_normalized): plt.xlabel("k (h Mpc-1)")
-        else: plt.xlabel("k (Mpc-1)")
+        plt.legend(utils.return_key(kwargs,"legend",[]))
         plt.title("Power spectrum")
 
 
@@ -234,7 +237,8 @@ class MatterPowerSpectrum(PowerSpectrum):
         if (power_weighted) : k_array = pwk
         else : k_array = k
         dimension = "3D"
-        return(cls(dimension,specie,k_array=k_array,power_array=power,file_init=namefile,size_box=None))
+        h_normalized  = True
+        return(cls(dimension,specie,k_array=k_array,power_array=power,file_init=namefile,size_box=None,h_normalized=h_normalized))
 
 
 
@@ -250,13 +254,15 @@ class FluxPowerSpectrum(PowerSpectrum):
 
     @classmethod
     def init_from_gimlet(cls,namefile,kmu=True,power_weighted=False):
+
         if(kmu): (k1_edge, k2_edge, pwk1, pwk2, power) = cls.init_kmu(namefile)
         else: (k1_edge, k2_edge, pwk1, pwk2, power) = cls.init_kperpar(namefile)
         if (power_weighted) : k1_array , k2_array = pwk1,pwk2
         else : k1_array , k2_array = k1_edge,k2_edge
         k_array = np.stack([k1_array, k2_array])
         dimension = "3D"
-        return(cls(dimension,k_array=k_array,power_array=power,file_init=namefile,size_box=None))        
+        h_normalized  = True
+        return(cls(dimension,k_array=k_array,power_array=power,file_init=namefile,size_box=None,h_normalized=h_normalized))        
         
         
     @classmethod

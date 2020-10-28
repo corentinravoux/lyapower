@@ -43,8 +43,8 @@ def mask_data(indexes,*args):
 def D0(k,mu,k_nl,a_nl,k_p,a_p,k_v0,a_v0,k_v1,a_v1):
     return(np.exp((k/k_nl)**a_nl - (k/k_p)**a_p - ((k*mu)/(k_v0 * (1 + (k/k_v1))**a_v1))**a_v0))
 
-def D1(k,mu,q_1,q_2,k_v,a_v,b_v,k_p,matter_power_spectrum):
-    Delta = (1/(2*np.pi**2))*k**3 * matter_power_spectrum
+def D1(k,mu,q_1,q_2,k_v,a_v,b_v,k_p,linear_power_spectrum):
+    Delta = (1/(2*np.pi**2))*k**3 * linear_power_spectrum
     non_linear_term = np.exp((q_1*Delta**2 + q_2*Delta**4)*(1-((k/k_v)**a_v)*mu**b_v) - (k/k_p)**2)
     return(non_linear_term)
 
@@ -59,11 +59,12 @@ def Pl_class(k_array,settings,z,name="class"):
     my_class =CLASS.MyClass(os.getcwd(),settings)
     kmin,kmax,nb_points = np.log10(np.min(k_array)),np.log10(np.max(k_array)),2*len(k_array)
     (Power,Transfer,sigma_8) = my_class.write_pk_tk(z,name,kmin=kmin,kmax=kmax,nb_points=nb_points)
-    power = power_spectra.MatterPowerSpectrum(k_array=Power[:,0],power_array=Power[:,1],dimension="1D",specie="matter")
+    h_normalized = True
+    power = power_spectra.MatterPowerSpectrum(k_array=Power[:,0],power_array=Power[:,1],dimension="1D",specie="matter",h_normalized=h_normalized)
     return(power)
 
 
-def Pf_model(matter_power_spectrum,non_linear_model="0"):
+def Pf_model(linear_power_spectrum=None,non_linear_model="0"):
     
     def modelD0(x,b,beta,k_nl,a_nl,k_p,a_p,k_v0,a_v0,k_v1,a_v1):
         k,mu = x[0],x[1]
@@ -73,7 +74,7 @@ def Pf_model(matter_power_spectrum,non_linear_model="0"):
 
     def modelD1(x,b,beta,q_1,q_2,k_v,a_v,b_v,k_p):
         k,mu = x[0],x[1]
-        Pf = b**2 * (1 + beta * mu**2)**2 * Pl(k) * D1(k,mu,q_1,q_2,k_v,a_v,b_v,k_p,matter_power_spectrum)
+        Pf = b**2 * (1 + beta * mu**2)**2 * Pl(k) * D1(k,mu,q_1,q_2,k_v,a_v,b_v,k_p,linear_power_spectrum)
         return(Pf)
 
     def modellinear(x,b,beta):
@@ -123,8 +124,8 @@ def cost_function(model,data_x,data_y,data_yerr,cost_name,non_linear_model="0"):
 ### Minuit stuff
 
 
-def run_minuit(data_x,data_y,data_yerr,minuit_parameters,sigma,matter_power_spectrum,non_linear_model="0",cost_name="least",ncall=100,var_minos=None):
-    model = Pf_model(matter_power_spectrum,non_linear_model=non_linear_model)
+def run_minuit(data_x,data_y,data_yerr,minuit_parameters,sigma,linear_power_spectrum,non_linear_model="0",cost_name="least",ncall=100,var_minos=None):
+    model = Pf_model(linear_power_spectrum=linear_power_spectrum,non_linear_model=non_linear_model)
     cost = cost_function(model,data_x,data_y,data_yerr,cost_name,non_linear_model=non_linear_model)
     minuit_parameters.update({"errordef":1, "pedantic":False, "print_level": 0})
     minuit = Minuit(cost,**minuit_parameters)
@@ -155,47 +156,30 @@ def fitter_k_mu(pf_file,pk_file,minuit_parameters,sigma,power_weighted=False,cla
     power_f = read_pfkmu(pf_file,power_weighted=power_weighted)
     power_f.cut_extremum(kmin,kmax)
     if(pk_file == "class"):
-        power_m = Pl_class(power_f.k_array[0],class_dict,z_simu,name="class")
+        power_l = Pl_class(power_f.k_array[0],class_dict,z_simu,name="class")
     else:
-        power_m = read_pk(pk_file,power_weighted=power_weighted)
-    power_m_rebin = rebin_matter_power(power_m.power_array,power_m.k_array,power_f.k_array[0])
+        power_l = read_pk(pk_file,power_weighted=power_weighted)
+    power_l_rebin = rebin_matter_power(power_l.power_array,power_l.k_array,power_f.k_array[0])
     # mask_data([3],k_edge, mu_edge, bincount, pwk, pwmu, power)
     data_x = power_f.k_array
-    data_y = power_f.power_array / power_m_rebin
+    data_y = power_f.power_array / power_l_rebin
     data_yerr = 0.001 * data_y
-    minuit,model = run_minuit(data_x,data_y,data_yerr,minuit_parameters,sigma,power_m_rebin,non_linear_model=non_linear_model,cost_name=cost_name,ncall=ncall,var_minos=var_minos)
-    return(minuit,power_f,power_m,model)
+    minuit,model = run_minuit(data_x,data_y,data_yerr,minuit_parameters,sigma,power_l_rebin,non_linear_model=non_linear_model,cost_name=cost_name,ncall=ncall,var_minos=var_minos)
+    return(minuit,power_f,power_l,model)
 
 
 ### Plots
 
 
-def plot_fit(minuit,power_f,power_m,model):
-    minuit_params = []
-    print(minuit.params)
-    for i in range(len(minuit.params)):
-        minuit_params.append(minuit.params[i].value)
-    power_m_rebin = rebin_matter_power(power_m.power_array,power_m.k_array,power_f.k_array[0])
-    pf_over_pm_data = power_f.power_array / power_m_rebin
-    pf_over_pm_model = model(power_f.k_array,*minuit_params)
-    power1 = power_spectra.FluxPowerSpectrum(k_array=power_f.k_array,power_array= pf_over_pm_model,dimension="3D")  
-    power1.plot_2d_pk([0.25,0.5,0.75],color=["C1","C2","C3"])
 
 
-    power2 = power_spectra.FluxPowerSpectrum(k_array=power_f.k_array,power_array= pf_over_pm_data,dimension="3D")
-    power2.plot_2d_pk([0.25,0.5,0.75],legend=["0.25","0.5","0.75","0.25 - model","0.5 - model","0.75 - model"],ps="x",ls="None",color=["C1","C2","C3"])
-    
-
-
-def plot_pm(power_m):
-    power_m.open_plot()
-    power_m.plot_1d_pk()
-    # power_m.close_plot()
+def plot_pl(power_l):
+    power_l.open_plot()
+    power_l.plot_1d_pk()
     
 def plot_pf(power_f):
     power_f.open_plot()
     power_f.plot_2d_pk([0.25,0.5,0.75],legend=["0.25","0.5","0.75"])
-    # power_f.close_plot()
 
 
 def plot_pf_pm(power_f,power_m):
@@ -203,9 +187,26 @@ def plot_pf_pm(power_f,power_m):
     power_m_rebin = rebin_matter_power(power_m.power_array,power_m.k_array,power_f.k_array[0],ls=None)
     power_f.power_array = power_f.power_array / power_m_rebin
     power_f.plot_2d_pk([0.25,0.5,0.75],legend=["0.25","0.5","0.75"],ps="x")
-    # power_f.close_plot()
 
 
+def plot_fit(minuit,power_f,power_l,model,name_out="fit_results"):
+    minuit_params = []
+    for i in range(len(minuit.params)):
+        minuit_params.append(minuit.params[i].value)
+    power_l_rebin = rebin_matter_power(power_l.power_array,power_l.k_array,power_f.k_array[0])
+    pf_over_pm_data = power_f.power_array / power_l_rebin
+    pf_over_pm_model = model(power_f.k_array,*minuit_params)
+
+
+    h_normalized = power_f.h_normalized
+    power1 = power_spectra.FluxPowerSpectrum(k_array=power_f.k_array,power_array= pf_over_pm_model,dimension="3D",h_normalized=h_normalized)  
+    power1.plot_2d_pk([0.25,0.5,0.75],color=["C1","C2","C3"])
+
+
+    h_normalized = power_l.h_normalized
+    power2 = power_spectra.FluxPowerSpectrum(k_array=power_f.k_array,power_array= pf_over_pm_data,dimension="3D",h_normalized=h_normalized)
+    power2.plot_2d_pk([0.25,0.5,0.75],legend=["0.25 - model","0.5 - model","0.75 - model","0.25","0.5","0.75"],ps="x",ls="None",color=["C1","C2","C3"],y_label=r"$P_f/P_l$")
+    power2.save_fig(name_out)
 
 
 
