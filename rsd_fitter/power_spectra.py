@@ -16,15 +16,15 @@ import utils_fitter as utils
 
 
 class PowerSpectrum(object):
-    
-    
+
+
     def __init__(self,k_array=None,power_array=None,file_init=None,size_box=None,h_normalized=None):
         self.k_array = k_array
         self.power_array = power_array
         self.file_init = file_init
         self.size_box = size_box
         self.h_normalized = h_normalized
-        
+
 
     @classmethod
     def init_from_genpk_file(cls,name_file,size_box):
@@ -48,10 +48,10 @@ class PowerSpectrum(object):
         power_array=file_power[1:,1]
         h_normalized = True
         return(cls(k_array=k_array,power_array=power_array,file_init=name_file,size_box=None,h_normalized = h_normalized))
-        
 
-    
-    
+
+
+
 
     def rebin_arrays(self,nb_bin,operation="mean"):
         if nb_bin is None : return()
@@ -89,7 +89,7 @@ class PowerSpectrum(object):
 
 
     def put_label(self,y_label ="P"):
-        if(self.h_normalized): 
+        if(self.h_normalized):
             plt.ylabel(f"{y_label}" + r"[$\rm{h}^{-3}.\rm{Mpc}^3$]")
             plt.xlabel(r"k [$\rm{h}.\rm{Mpc}^{-1}$]")
         else:
@@ -100,7 +100,7 @@ class PowerSpectrum(object):
     def plot_1d_pk(self,flux_factor = None,**kwargs):
         self.put_label()
         plt.title("Power spectrum")
-        plt.loglog(self.k_array,self.power_array,marker = utils.return_key(kwargs,"ps",None), linestyle= utils.return_key(kwargs,"ls","-"), color=utils.return_key(kwargs,"color",None)) 
+        plt.loglog(self.k_array,self.power_array,marker = utils.return_key(kwargs,"ps",None), linestyle= utils.return_key(kwargs,"ls","-"), color=utils.return_key(kwargs,"color",None))
 
 
     def plot_2d_pk(self,bin_edges,flux_factor = None,**kwargs):
@@ -143,8 +143,8 @@ class PowerSpectrum(object):
         else:ax[0].legend(label_list,ncol=2)
         ax[1].set_ylim(-diff_extremums,diff_extremums)
         return(ax)
-        
-        
+
+
     def add_comparison_spectra(self,list_spectra,ax,normalize=True):
         kref = self.k_array
         if(normalize): kpkref = ( self.k_array**3 * self.power_array )/2*(np.pi)**2
@@ -189,7 +189,7 @@ class PowerSpectrum(object):
     def open_plot(self):
         plt.figure()
 
-        
+
     def get_k_value(self,k):
         interp = interp1d(self.k_array, self.power_array, bounds_error=True)
         print(interp(k))
@@ -213,11 +213,11 @@ class PowerSpectrum(object):
                 return()
             else:
                 return()
-                
+
 
 
 class MatterPowerSpectrum(PowerSpectrum):
-    
+
     def __init__(self,dimension,specie,**kwargs):
         super(MatterPowerSpectrum,self).__init__(**kwargs)
         if dimension not in ["1D","3D"]: raise KeyError("Dimension of spectrum not available, please choose between 1D and 3D")
@@ -227,9 +227,9 @@ class MatterPowerSpectrum(PowerSpectrum):
 
     @classmethod
     def init_from_gimlet(cls,namefile,specie="unknown",power_weighted=False):
-        """ Pm(k) gimlet file contains 
+        """ Pm(k) gimlet file contains
          - k: edge (higher) of the k bin considered
-         - bincount: number of mode (pairs) computed in the bin 
+         - bincount: number of mode (pairs) computed in the bin
          - pwk: power weighted k
          - power: power of the bin"""
         f = np.loadtxt(namefile)
@@ -244,8 +244,8 @@ class MatterPowerSpectrum(PowerSpectrum):
 
 
 class FluxPowerSpectrum(PowerSpectrum):
-    
-    
+
+
     def __init__(self,dimension,**kwargs):
         super(FluxPowerSpectrum,self).__init__(**kwargs)
         if dimension not in ["1D","3D"]: raise KeyError("Dimension of spectrum not available, please choose between 1D and 3D")
@@ -262,15 +262,15 @@ class FluxPowerSpectrum(PowerSpectrum):
         k_array = np.stack([k1_array, k2_array])
         dimension = "3D"
         h_normalized  = True
-        return(cls(dimension,k_array=k_array,power_array=power,file_init=namefile,size_box=None,h_normalized=h_normalized))        
-        
-        
+        return(cls(dimension,k_array=k_array,power_array=power,file_init=namefile,size_box=None,h_normalized=h_normalized))
+
+
     @classmethod
     def init_kmu(cls,namefile):
-        """ Pf(k,mu) gimlet file contains 
+        """ Pf(k,mu) gimlet file contains
          - k_edge: edge (higher) of the k bin considered
          - mu_edge: edge (lower) of the mu bin considered (mu positive)
-         - bincount: number of mode (pairs) computed in the bin 
+         - bincount: number of mode (pairs) computed in the bin
          - pwk: power weighted k
          - pwmu: power weighted mu
          - power: power of the bin"""
@@ -282,10 +282,10 @@ class FluxPowerSpectrum(PowerSpectrum):
 
     @classmethod
     def init_kperpar(cls,namefile):
-        """ Pf(kperp,kpar) gimlet file contains 
+        """ Pf(kperp,kpar) gimlet file contains
          - k_perp: edge (higher) of the k perp bin considered
          - k_par: edge (higher) of the k par bin considered
-         - bincount: number of mode (pairs) computed in the bin 
+         - bincount: number of mode (pairs) computed in the bin
          - pwkperp: power weighted k perp
          - pwkpar: power weighted k par
          - power: power of the bin"""
@@ -341,13 +341,3 @@ def launch_comparison_power_spectra_different_ref(list_file,type_file,label_list
         else:reference_spectrum.add_comparison_spectra(list_spectra,ax,normalize=normalize)
     reference_spectrum.save_fig(name_out)
     reference_spectrum.close_plot()
-
-
-
-
-
-
-
-
-
-

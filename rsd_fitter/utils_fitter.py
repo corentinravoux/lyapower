@@ -22,7 +22,6 @@ Tested on irene and cobalt (CCRT)
 
 import numpy as np
 import logging, time
-import scipy
 
 
 
@@ -90,7 +89,7 @@ def create_report_log(name="Python_Report",log_level="info"):
 _logging_handler = None
 
 class Logger(object):
-    
+
     def __init__(self,name="Python_Report",log_level="info"):
         self.name = name
         self.log_level = log_level
@@ -105,31 +104,31 @@ class Logger(object):
     	log_level : 'info', 'debug', 'warning'
     		the logging level to set; logging below this level is ignored
     	"""
-    
+
     	# This gives:
     	#
     	# [ 000000.43 ]   0: 06-28 14:49  measurestats	INFO	 Nproc = [2, 1, 1]
     	# [ 000000.43 ]   0: 06-28 14:49  measurestats	INFO	 Rmax = 120
-    
+
     	levels = {"info" : logging.INFO,"debug" : logging.DEBUG,"warning" : logging.WARNING}
-    
+
     	logger = logging.getLogger();
     	t0 = time.time()
-    
-    
+
+
     	class Formatter(logging.Formatter):
     		def format(self, record):
     			s1 = ('[ %09.2f ]: ' % (time.time() - t0))
     			return s1 + logging.Formatter.format(self, record)
-    
+
     	fmt = Formatter(fmt='%(asctime)s %(name)-15s %(levelname)-8s %(message)s',
     					datefmt='%m-%d %H:%M ')
-    
+
     	global _logging_handler
     	if _logging_handler is None:
     		_logging_handler = logging.StreamHandler()
     		logger.addHandler(_logging_handler)
-    
+
     	_logging_handler.setFormatter(fmt)
     	logger.setLevel(levels[self.log_level])
 
@@ -161,11 +160,11 @@ class Logger(object):
 
 def latex_float(float_input,decimals_input="{0:.2g}"):
     """
-    example use: 
+    example use:
     import matplotlib.pyplot as plt
     plt.figure(),plt.clf()
     plt.plot(np.array([1,2.]),'ko-',label="$P_0="+latex_float(7.63e-5)+'$'),
-    plt.legend() 
+    plt.legend()
     """
     float_str = decimals_input.format(float_input)
     if "e" in float_str:
@@ -177,6 +176,3 @@ def latex_float(float_input,decimals_input="{0:.2g}"):
 
 def return_key(dictionary,string,default_value):
     return(dictionary[string] if string in dictionary.keys() else default_value)
-
-
-
