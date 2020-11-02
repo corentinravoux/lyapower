@@ -2,7 +2,8 @@ import numpy as np
 import os
 from iminuit import Minuit
 import scipy.interpolate
-import power_spectra
+from rsd_fitter import power_spectra
+from rsd_fitter import CLASS
 
 
 
@@ -55,7 +56,6 @@ def Pl(k):
 
 
 def Pl_class(k_array,settings,z,name="class"):
-    import CLASS
     my_class =CLASS.MyClass(os.getcwd(),settings)
     kmin,kmax,nb_points = np.log10(np.min(k_array)),np.log10(np.max(k_array)),2*len(k_array)
     (Power,Transfer,sigma_8) = my_class.write_pk_tk(z,name,kmin=kmin,kmax=kmax,nb_points=nb_points)
@@ -65,7 +65,7 @@ def Pl_class(k_array,settings,z,name="class"):
 
 
 def Pf_model(linear_power_spectrum=None,non_linear_model="0"):
-    
+
     def modelD0(x,b,beta,k_nl,a_nl,k_p,a_p,k_v0,a_v0,k_v1,a_v1):
         k,mu = x[0],x[1]
         Pf = b**2 * (1 + beta * mu**2)**2 * Pl(k) * D0(k,mu,k_nl,a_nl,k_p,a_p,k_v0,a_v0,k_v1,a_v1)
@@ -81,18 +81,18 @@ def Pf_model(linear_power_spectrum=None,non_linear_model="0"):
         k,mu = x[0],x[1]
         Pf = b**2 * (1 + beta * mu**2)**2 * Pl(k)
         return(Pf)
-    
-    
+
+
     if(non_linear_model == "0"):
         return(modelD0)
     elif(non_linear_model == "1"):
         return(modelD1)
     elif(non_linear_model == None):
-        return(modellinear)   
+        return(modellinear)
 
 
 def custom_least_squares(model,data_x,data_y,data_yerr,non_linear_model="0"):
-    
+
     def costD0(b,beta,k_nl,a_nl,k_p,a_p,k_v0,a_v0,k_v1,a_v1):
         ym = model(data_x,b,beta,k_nl,a_nl,k_p,a_p,k_v0,a_v0,k_v1,a_v1)
         z = (data_y - ym) / data_yerr ** 2
@@ -111,9 +111,9 @@ def custom_least_squares(model,data_x,data_y,data_yerr,non_linear_model="0"):
     if(non_linear_model == "0"):
         return(costD0)
     elif(non_linear_model == "1"):
-        return(costD1)        
+        return(costD1)
     elif(non_linear_model == None):
-        return(costlinear)   
+        return(costlinear)
 
 def cost_function(model,data_x,data_y,data_yerr,cost_name,non_linear_model="0"):
     if(cost_name =="least"):
@@ -176,7 +176,7 @@ def fitter_k_mu(pf_file,pk_file,minuit_parameters,sigma,power_weighted=False,cla
 def plot_pl(power_l):
     power_l.open_plot()
     power_l.plot_1d_pk()
-    
+
 def plot_pf(power_f):
     power_f.open_plot()
     power_f.plot_2d_pk([0.25,0.5,0.75],legend=["0.25","0.5","0.75"])
@@ -184,7 +184,7 @@ def plot_pf(power_f):
 
 def plot_pf_pm(power_f,power_m):
     power_f.open_plot()
-    power_m_rebin = rebin_matter_power(power_m.power_array,power_m.k_array,power_f.k_array[0],ls=None)
+    power_m_rebin = rebin_matter_power(power_m.power_array,power_m.k_array,power_f.k_array[0])
     power_f.power_array = power_f.power_array / power_m_rebin
     power_f.plot_2d_pk([0.25,0.5,0.75],legend=["0.25","0.5","0.75"],ps="x")
 
@@ -199,7 +199,7 @@ def plot_fit(minuit,power_f,power_l,model,name_out="fit_results"):
 
 
     h_normalized = power_f.h_normalized
-    power1 = power_spectra.FluxPowerSpectrum(k_array=power_f.k_array,power_array= pf_over_pm_model,dimension="3D",h_normalized=h_normalized)  
+    power1 = power_spectra.FluxPowerSpectrum(k_array=power_f.k_array,power_array= pf_over_pm_model,dimension="3D",h_normalized=h_normalized)
     power1.plot_2d_pk([0.25,0.5,0.75],color=["C1","C2","C3"])
 
 
@@ -207,6 +207,3 @@ def plot_fit(minuit,power_f,power_l,model,name_out="fit_results"):
     power2 = power_spectra.FluxPowerSpectrum(k_array=power_f.k_array,power_array= pf_over_pm_data,dimension="3D",h_normalized=h_normalized)
     power2.plot_2d_pk([0.25,0.5,0.75],legend=["0.25 - model","0.5 - model","0.75 - model","0.25","0.5","0.75"],ps="x",ls="None",color=["C1","C2","C3"],y_label=r"$P_f/P_l$")
     power2.save_fig(name_out)
-
-
-
