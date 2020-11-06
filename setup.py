@@ -26,7 +26,7 @@ packages = ['rsd_fitter']
 
 # What packages are required for this module to be executed?
 REQUIRED = [
-    # 'fitsio', 'numpy', 'scipy','matplotlib','subprocess','pickle','multiprocessing','iminuit'
+     'fitsio', 'numpy', 'scipy','matplotlib','iminuit'
 ]
 
 # What packages are optional?
