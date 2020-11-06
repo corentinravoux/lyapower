@@ -95,17 +95,17 @@ def custom_least_squares(model,data_x,data_y,data_yerr,non_linear_model="0"):
 
     def costD0(b,beta,k_nl,a_nl,k_p,a_p,k_v0,a_v0,k_v1,a_v1):
         ym = model(data_x,b,beta,k_nl,a_nl,k_p,a_p,k_v0,a_v0,k_v1,a_v1)
-        z = (data_y - ym) / data_yerr ** 2
+        z = (data_y - ym) / data_yerr
         return np.nansum(z ** 2)
 
     def costD1(b,beta,q_1,q_2,k_v,a_v,b_v,k_p):
         ym = model(data_x,b,beta,q_1,q_2,k_v,a_v,b_v,k_p)
-        z = (data_y - ym) / data_yerr ** 2
+        z = (data_y - ym) / data_yerr
         return np.nansum(z ** 2)
 
     def costlinear(b,beta):
         ym = model(data_x,b,beta)
-        z = (data_y - ym) / data_yerr ** 2
+        z = (data_y - ym) / data_yerr
         return np.nansum(z ** 2)
 
     if(non_linear_model == "0"):
@@ -197,6 +197,8 @@ def plot_fit(minuit,power_f,power_l,model,mu_bin,legend,name_out="fit_results"):
         minuit_params.append(minuit.params[i].value)
     power_l_rebin = rebin_matter_power(power_l.power_array,power_l.k_array,power_f.k_array[0])
     pf_over_pm_data = power_f.power_array / power_l_rebin
+    if(power_f.error_array is not None): error_array = power_f.error_array/ power_l_rebin
+    else: error_array = None
     pf_over_pm_model = model(power_f.k_array,*minuit_params)
 
     color = [f"C{i}" for i in range(len(mu_bin))]
@@ -207,7 +209,7 @@ def plot_fit(minuit,power_f,power_l,model,mu_bin,legend,name_out="fit_results"):
 
 
     h_normalized = power_l.h_normalized
-    power2 = power_spectra.FluxPowerSpectrum(k_array=power_f.k_array,power_array= pf_over_pm_data,dimension="3D",h_normalized=h_normalized)
+    power2 = power_spectra.FluxPowerSpectrum(k_array=power_f.k_array,power_array= pf_over_pm_data,error_array=error_array,dimension="3D",h_normalized=h_normalized)
     power2.plot_2d_pk(mu_bin,legend=legend,ps="x",ls="None",color=color,y_label=r"$P_f/P_l$")
     power2.save_fig(name_out)
 
