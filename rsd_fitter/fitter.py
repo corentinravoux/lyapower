@@ -7,16 +7,16 @@ from rsd_fitter import CLASS
 
 
 
-def read_pfkmu(filename,power_weighted=False):
-    power = power_spectra.FluxPowerSpectrum.init_from_gimlet(filename,kmu=True,power_weighted=power_weighted)
+def read_pfkmu(filename,power_weighted=False,error_estimator=None,**kwargs):
+    power = power_spectra.FluxPowerSpectrum.init_from_gimlet(filename,kmu=True,power_weighted=power_weighted,error_estimator=error_estimator,**kwargs)
     return(power)
 
-def read_pfkperpkpar(filename,power_weighted=False):
-    power = power_spectra.FluxPowerSpectrum.init_from_gimlet(filename,kmu=False,power_weighted=power_weighted)
+def read_pfkperpkpar(filename,power_weighted=False,error_estimator=None,**kwargs):
+    power = power_spectra.FluxPowerSpectrum.init_from_gimlet(filename,kmu=False,power_weighted=power_weighted,error_estimator=error_estimator,**kwargs)
     return(power)
 
-def read_pk(filename,power_weighted=False):
-    power = power_spectra.MatterPowerSpectrum.init_from_gimlet(filename,power_weighted=power_weighted)
+def read_pk(filename,power_weighted=False,error_estimator=None,**kwargs):
+    power = power_spectra.MatterPowerSpectrum.init_from_gimlet(filename,power_weighted=power_weighted,error_estimator=error_estimator,**kwargs)
     return(power)
 
 
@@ -152,8 +152,8 @@ def run_hesse(minuit):
 
 
 
-def fitter_k_mu(pf_file,pk_file,minuit_parameters,sigma,power_weighted=False,class_dict=None,z_simu=None,non_linear_model="0",cost_name="least",ncall=100,kmax=None,kmin=None,var_minos=None):
-    power_f = read_pfkmu(pf_file,power_weighted=power_weighted)
+def fitter_k_mu(pf_file,pk_file,minuit_parameters,sigma,power_weighted=False,class_dict=None,z_simu=None,non_linear_model="0",cost_name="least",ncall=100,kmax=None,kmin=None,var_minos=None,error_estimator=None,**kwargs):
+    power_f = read_pfkmu(pf_file,power_weighted=power_weighted,error_estimator=error_estimator,**kwargs)
     power_f.cut_extremum(kmin,kmax)
     if(pk_file == "class"):
         power_l = Pl_class(power_f.k_array[0],class_dict,z_simu,name="class")
@@ -163,7 +163,9 @@ def fitter_k_mu(pf_file,pk_file,minuit_parameters,sigma,power_weighted=False,cla
     # mask_data([3],k_edge, mu_edge, bincount, pwk, pwmu, power)
     data_x = power_f.k_array
     data_y = power_f.power_array / power_l_rebin
-    data_yerr = 0.001 * data_y
+    if(power_f.error_array is not None):
+        data_yerr = power_f.error_array
+    else: data_yerr = 0.001 * data_y
     minuit,model = run_minuit(data_x,data_y,data_yerr,minuit_parameters,sigma,power_l_rebin,non_linear_model=non_linear_model,cost_name=cost_name,ncall=ncall,var_minos=var_minos)
     return(minuit,power_f,power_l,model)
 
@@ -177,19 +179,19 @@ def plot_pl(power_l):
     power_l.open_plot()
     power_l.plot_1d_pk()
 
-def plot_pf(power_f):
+def plot_pf(power_f,mu_bin,legend):
     power_f.open_plot()
-    power_f.plot_2d_pk([0.25,0.5,0.75],legend=["0.25","0.5","0.75"])
+    power_f.plot_2d_pk(mu_bin,legend=legend)
 
 
-def plot_pf_pm(power_f,power_m):
+def plot_pf_pm(power_f,power_m,mu_bin,legend):
     power_f.open_plot()
     power_m_rebin = rebin_matter_power(power_m.power_array,power_m.k_array,power_f.k_array[0])
     power_f.power_array = power_f.power_array / power_m_rebin
-    power_f.plot_2d_pk([0.25,0.5,0.75],legend=["0.25","0.5","0.75"],ps="x")
+    power_f.plot_2d_pk(mu_bin,legend=legend,ps="x")
 
 
-def plot_fit(minuit,power_f,power_l,model,name_out="fit_results"):
+def plot_fit(minuit,power_f,power_l,model,mu_bin,legend,name_out="fit_results"):
     minuit_params = []
     for i in range(len(minuit.params)):
         minuit_params.append(minuit.params[i].value)
@@ -197,13 +199,29 @@ def plot_fit(minuit,power_f,power_l,model,name_out="fit_results"):
     pf_over_pm_data = power_f.power_array / power_l_rebin
     pf_over_pm_model = model(power_f.k_array,*minuit_params)
 
+    color = [f"C{i}" for i in range(len(mu_bin))]
 
     h_normalized = power_f.h_normalized
     power1 = power_spectra.FluxPowerSpectrum(k_array=power_f.k_array,power_array= pf_over_pm_model,dimension="3D",h_normalized=h_normalized)
-    power1.plot_2d_pk([0.25,0.5,0.75],color=["C1","C2","C3"])
+    power1.plot_2d_pk(mu_bin,color=color)
 
 
     h_normalized = power_l.h_normalized
     power2 = power_spectra.FluxPowerSpectrum(k_array=power_f.k_array,power_array= pf_over_pm_data,dimension="3D",h_normalized=h_normalized)
-    power2.plot_2d_pk([0.25,0.5,0.75],legend=["0.25 - model","0.5 - model","0.75 - model","0.25","0.5","0.75"],ps="x",ls="None",color=["C1","C2","C3"],y_label=r"$P_f/P_l$")
+    power2.plot_2d_pk(mu_bin,legend=legend,ps="x",ls="None",color=color,y_label=r"$P_f/P_l$")
     power2.save_fig(name_out)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###

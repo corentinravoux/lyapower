@@ -15,15 +15,22 @@ from rsd_fitter import utils_fitter as utils
 
 
 
+
+
+
+
+
 class PowerSpectrum(object):
 
 
-    def __init__(self,k_array=None,power_array=None,file_init=None,size_box=None,h_normalized=None):
+    def __init__(self,k_array=None,power_array=None,error_array=None,file_init=None,size_box=None,h_normalized=None):
         self.k_array = k_array
         self.power_array = power_array
         self.file_init = file_init
         self.size_box = size_box
         self.h_normalized = h_normalized
+        self.error_array = error_array
+
 
 
     @classmethod
@@ -86,6 +93,7 @@ class PowerSpectrum(object):
             mask &= self.k_array[0,:] <= kmax
         self.k_array = np.transpose(np.transpose(self.k_array)[mask])
         self.power_array = self.power_array[mask]
+        if(self.error_array is not None):self.error_array = self.error_array[mask]
 
 
     def put_label(self,y_label ="P"):
@@ -109,8 +117,15 @@ class PowerSpectrum(object):
         for i in range(len(bin_edges)):
             mask = (self.k_array[1] < bin_edges[i]) & (self.k_array[1] >= bin_start)
             c = kwargs["color"][i] if "color" in kwargs.keys() else None
-            plt.loglog(self.k_array[0][mask],self.power_array[mask],marker = utils.return_key(kwargs,"ps",None), linestyle= utils.return_key(kwargs,"ls","-"), color=c)
+            if(self.error_array is not None):
+                plt.errorbar(self.k_array[0][mask],self.power_array[mask],self.error_array[mask],marker = utils.return_key(kwargs,"ps",None), linestyle= utils.return_key(kwargs,"ls","-"), color=c)
+            else:
+                plt.plot(self.k_array[0][mask],self.power_array[mask],marker = utils.return_key(kwargs,"ps",None), linestyle= utils.return_key(kwargs,"ls","-"), color=c)
             bin_start = bin_edges[i]
+        xscale = utils.return_key(kwargs,"xscale","log")
+        yscale = utils.return_key(kwargs,"yscale","log")
+        plt.xscale(xscale)
+        plt.yscale(yscale)
         plt.legend(utils.return_key(kwargs,"legend",[]))
         plt.title("Power spectrum")
 
@@ -226,19 +241,22 @@ class MatterPowerSpectrum(PowerSpectrum):
 
 
     @classmethod
-    def init_from_gimlet(cls,namefile,specie="unknown",power_weighted=False):
+    def init_from_gimlet(cls,namefile,specie="unknown",power_weighted=False,error_estimator=None,**kwargs):
         """ Pm(k) gimlet file contains
          - k: edge (higher) of the k bin considered
          - bincount: number of mode (pairs) computed in the bin
          - pwk: power weighted k
          - power: power of the bin"""
         f = np.loadtxt(namefile)
-        k, pwk,power = f[:,0],f[:,2],f[:,3]
+        k, bincount, pwk,power = f[:,0],f[:,1],f[:,2],f[:,3]
+        if(error_estimator is not None):
+            error = utils.error_estimator(power,model=error_estimator,bin_count=bincount,**kwargs)
+        else: error = None
         if (power_weighted) : k_array = pwk
         else : k_array = k
         dimension = "3D"
         h_normalized  = True
-        return(cls(dimension,specie,k_array=k_array,power_array=power,file_init=namefile,size_box=None,h_normalized=h_normalized))
+        return(cls(dimension,specie,k_array=k_array,power_array=power,error_array=error,file_init=namefile,size_box=None,h_normalized=h_normalized))
 
 
 
@@ -253,16 +271,19 @@ class FluxPowerSpectrum(PowerSpectrum):
 
 
     @classmethod
-    def init_from_gimlet(cls,namefile,kmu=True,power_weighted=False):
+    def init_from_gimlet(cls,namefile,kmu=True,power_weighted=False,error_estimator=None,**kwargs):
 
-        if(kmu): (k1_edge, k2_edge, pwk1, pwk2, power) = cls.init_kmu(namefile)
-        else: (k1_edge, k2_edge, pwk1, pwk2, power) = cls.init_kperpar(namefile)
+        if(kmu): (k1_edge, k2_edge, bincount, pwk1, pwk2, power) = cls.init_kmu(namefile)
+        else: (k1_edge, k2_edge, bincount, pwk1, pwk2, power) = cls.init_kperpar(namefile)
         if (power_weighted) : k1_array , k2_array = pwk1,pwk2
         else : k1_array , k2_array = k1_edge,k2_edge
+        if(error_estimator is not None):
+            error = utils.error_estimator(power,model=error_estimator,bin_count=bincount,**kwargs)
+        else: error = None
         k_array = np.stack([k1_array, k2_array])
         dimension = "3D"
         h_normalized  = True
-        return(cls(dimension,k_array=k_array,power_array=power,file_init=namefile,size_box=None,h_normalized=h_normalized))
+        return(cls(dimension,k_array=k_array,power_array=power,error_array=error,file_init=namefile,size_box=None,h_normalized=h_normalized))
 
 
     @classmethod
@@ -275,8 +296,8 @@ class FluxPowerSpectrum(PowerSpectrum):
          - pwmu: power weighted mu
          - power: power of the bin"""
         f = np.loadtxt(namefile)
-        k_edge, mu_edge, pwk, pwmu,power = f[:,0],f[:,1],f[:,3],f[:,4],f[:,5]
-        return(k_edge, mu_edge, pwk, pwmu, power)
+        k_edge, mu_edge, bincount, pwk, pwmu,power = f[:,0],f[:,1],f[:,2],f[:,3],f[:,4],f[:,5]
+        return(k_edge, mu_edge, bincount , pwk, pwmu, power)
 
 
 
@@ -290,8 +311,8 @@ class FluxPowerSpectrum(PowerSpectrum):
          - pwkpar: power weighted k par
          - power: power of the bin"""
         f = np.loadtxt(namefile)
-        k_perp, k_par, pwkperp, pwkpar,power = f[:,0],f[:,1],f[:,3],f[:,4],f[:,5]
-        return(k_perp, k_par, pwkperp, pwkpar,power)
+        k_perp, k_par, bincount, pwkperp, pwkpar,power = f[:,0],f[:,1],f[:,2],f[:,3],f[:,4],f[:,5]
+        return(k_perp, k_par, bincount, pwkperp, pwkpar,power)
 
 
 

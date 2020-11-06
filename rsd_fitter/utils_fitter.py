@@ -20,9 +20,8 @@ Tested on irene and cobalt (CCRT)
 
 
 
-import numpy as np
 import logging, time
-
+import numpy as np
 
 
 #############################################################################
@@ -33,45 +32,6 @@ import logging, time
 
 lambdaLy = 1215.673123130217
 
-
-def bin_ndarray(ndarray, new_shape, operation='mean'):
-    """
-    From : https://stackoverflow.com/questions/8090229/resize-with-averaging-or-rebin-a-numpy-2d-array/29042041
-    Bins an ndarray in all axes based on the target shape, by summing or
-    averaging.
-    Number of output dimensions must match number of input dimensions.
-    Example
-    -------
-    >>> m = np.arange(0,100,1).reshape((10,10))
-    >>> n = bin_ndarray(m, new_shape=(5,5), operation='sum')
-    >>> print(n)
-    [[ 22  30  38  46  54]
-    [102 110 118 126 134]
-    [182 190 198 206 214]
-    [262 270 278 286 294]
-    [342 350 358 366 374]]
-    """
-    if not operation.lower() in ['sum', 'mean', 'average', 'avg','gauss']:
-        raise ValueError("Operation {} not supported.".format(operation))
-    if ndarray.ndim != len(new_shape):
-        raise ValueError("Shape mismatch: {} -> {}".format(ndarray.shape,new_shape))
-    compression_pairs = [(d, c//d) for d, c in zip(new_shape,ndarray.shape)]
-    flattened = [l for p in compression_pairs for l in p]
-    ndarray = ndarray.reshape(flattened)
-    for i in range(len(new_shape)):
-        if operation.lower() == "sum":
-            ndarray = ndarray.sum(-1*(i+1))
-        elif operation.lower() in ["mean", "average", "avg"]:
-            ndarray = ndarray.mean(-1*(i+1))
-        elif operation.lower() in ["gauss"]:
-            if i!=0 : raise KeyError("gaussian mean is not available for dim higher than 1")
-            from scipy import signal
-            newndarray = np.zeros(new_shape)
-            gaussian_weights = signal.gaussian(int(ndarray.shape[1]),int(ndarray.shape[1])/4)
-            for j in range(len(ndarray)):
-                newndarray[j] = np.average(ndarray[j],axis=0,weights=gaussian_weights)
-            ndarray =newndarray
-    return ndarray
 
 
 
@@ -176,3 +136,19 @@ def latex_float(float_input,decimals_input="{0:.2g}"):
 
 def return_key(dictionary,string,default_value):
     return(dictionary[string] if string in dictionary.keys() else default_value)
+
+
+
+
+def error_estimator(power,model="uncorrelated",**kwargs):
+    if(model == "uncorrelated"):
+        return(error_estimator_uncorrelated(power,**kwargs))
+    else:
+        raise KeyError("model of error estimator not available")
+
+
+def error_estimator_uncorrelated(power,**kwargs):
+    epsilon = return_key(kwargs,"epsilon",None)
+    bin_count = return_key(kwargs,"bin_count",0)
+    if((bin_count is None)|(epsilon is None)): return KeyError("Need bin_count and epsilon")
+    return(power*((1/np.sqrt(bin_count)) + epsilon))
