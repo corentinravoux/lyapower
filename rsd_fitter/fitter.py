@@ -221,9 +221,12 @@ def plot_fit(minuit,power_f,power_l,model,mu_bin,legend,name_out="fit_results"):
 
 
 def minuit_to_latex(minuit,name=""):
-    file = open(f"{name}_minuit_results.tex",'w')
-    file.write(minuit.latex_matrix().__str__())
-    file.close()
+    try:
+        file = open(f"{name}_minuit_matrix.tex",'w')
+        file.write(minuit.latex_matrix().__str__())
+        file.close()
+    except:
+        print("no minuit matrix")
 
 
     file = open(f"{name}_minuit_params.tex",'w')
