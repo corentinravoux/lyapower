@@ -213,10 +213,17 @@ def plot_fit(minuit,power_f,power_l,model,mu_bin,legend,name_out="fit_results"):
     power2.plot_2d_pk(mu_bin,legend=legend,ps="x",ls="None",color=color,y_label=r"$P_f/P_l$")
     power2.save_fig(name_out)
 
+    minuit_to_latex(minuit,name=name_out)
 
 
 
+### Latex
 
+
+def minuit_to_latex(minuit,name=""):
+    file = open(f"{name}_minuit_results.tex",'w')
+    file.write(minuit.latex_matrix().__str__())
+    file.close()
 
 
 
