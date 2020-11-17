@@ -50,10 +50,6 @@ def D1(k,mu,q_1,q_2,k_v,a_v,b_v,k_p,linear_power_spectrum):
     return(non_linear_term)
 
 
-def Pl(k):
-    """ Put to one since the fitted data is Pf/Pl """
-    return(1)
-
 
 def Pl_class(k_array,settings,z,name="class"):
     my_class =CLASS.MyClass(os.getcwd(),settings)
@@ -64,22 +60,22 @@ def Pl_class(k_array,settings,z,name="class"):
     return(power)
 
 
-def Pf_model(linear_power_spectrum=None,non_linear_model="0"):
+def Pf_model(linear_power_spectrum,non_linear_model="0"):
 
     def modelD0(x,b,beta,k_nl,a_nl,k_p,a_p,k_v0,a_v0,k_v1,a_v1):
         k,mu = x[0],x[1]
-        Pf = b**2 * (1 + beta * mu**2)**2 * Pl(k) * D0(k,mu,k_nl,a_nl,k_p,a_p,k_v0,a_v0,k_v1,a_v1)
+        Pf = b**2 * (1 + beta * mu**2)**2 * linear_power_spectrum * D0(k,mu,k_nl,a_nl,k_p,a_p,k_v0,a_v0,k_v1,a_v1)
         return(Pf)
 
 
     def modelD1(x,b,beta,q_1,q_2,k_v,a_v,b_v,k_p):
         k,mu = x[0],x[1]
-        Pf = b**2 * (1 + beta * mu**2)**2 * Pl(k) * D1(k,mu,q_1,q_2,k_v,a_v,b_v,k_p,linear_power_spectrum)
+        Pf = b**2 * (1 + beta * mu**2)**2 * linear_power_spectrum * D1(k,mu,q_1,q_2,k_v,a_v,b_v,k_p,linear_power_spectrum)
         return(Pf)
 
     def modellinear(x,b,beta):
-        k,mu = x[0],x[1]
-        Pf = b**2 * (1 + beta * mu**2)**2 * Pl(k)
+        mu = x[1]
+        Pf = b**2 * (1 + beta * mu**2)**2 * linear_power_spectrum
         return(Pf)
 
 
@@ -115,16 +111,44 @@ def custom_least_squares(model,data_x,data_y,data_yerr,non_linear_model="0"):
     elif(non_linear_model == None):
         return(costlinear)
 
+
+def custom_least_squares_arinyo(model,data_x,data_y,data_yerr,non_linear_model="0"):
+
+    def costD0(b,beta,k_nl,a_nl,k_p,a_p,k_v0,a_v0,k_v1,a_v1):
+        ym = model(data_x,b,beta,k_nl,a_nl,k_p,a_p,k_v0,a_v0,k_v1,a_v1)
+        z = ((data_y**2/ym) - ym) / data_yerr
+        return np.nansum(z ** 2)
+
+    def costD1(b,beta,q_1,q_2,k_v,a_v,b_v,k_p):
+        ym = model(data_x,b,beta,q_1,q_2,k_v,a_v,b_v,k_p)
+        z = ((data_y**2/ym) - ym) / data_yerr
+        return np.nansum(z ** 2)
+
+    def costlinear(b,beta):
+        ym = model(data_x,b,beta)
+        z = ((data_y**2/ym) - ym) / data_yerr
+        return np.nansum(z ** 2)
+
+    if(non_linear_model == "0"):
+        return(costD0)
+    elif(non_linear_model == "1"):
+        return(costD1)
+    elif(non_linear_model == None):
+        return(costlinear)
+
+
 def cost_function(model,data_x,data_y,data_yerr,cost_name,non_linear_model="0"):
     if(cost_name =="least"):
         return(custom_least_squares(model,data_x,data_y,data_yerr,non_linear_model=non_linear_model))
+    elif(cost_name =="least_arinyo"):
+        return(custom_least_squares_arinyo(model,data_x,data_y,data_yerr,non_linear_model=non_linear_model))
 
 
 ### Minuit stuff
 
 
 def run_minuit(data_x,data_y,data_yerr,minuit_parameters,sigma,linear_power_spectrum,non_linear_model="0",cost_name="least",ncall=100,var_minos=None):
-    model = Pf_model(linear_power_spectrum=linear_power_spectrum,non_linear_model=non_linear_model)
+    model = Pf_model(linear_power_spectrum,non_linear_model=non_linear_model)
     cost = cost_function(model,data_x,data_y,data_yerr,cost_name,non_linear_model=non_linear_model)
     minuit_parameters.update({"errordef":1, "pedantic":False, "print_level": 0})
     minuit = Minuit(cost,**minuit_parameters)
@@ -159,12 +183,11 @@ def fitter_k_mu(pf_file,pk_file,minuit_parameters,sigma,power_weighted=False,cla
     else:
         power_l = read_pk(pk_file,power_weighted=power_weighted)
     power_l_rebin = rebin_matter_power(power_l.power_array,power_l.k_array,power_f.k_array[0])
-    # mask_data([3],k_edge, mu_edge, bincount, pwk, pwmu, power)
     data_x = power_f.k_array
-    data_y = power_f.power_array / power_l_rebin
-    if(power_f.error_array is not None):
-        data_yerr = power_f.error_array / power_l_rebin
-    else: data_yerr = 0.001 * data_y
+    data_y = power_f.power_array
+    if(power_f.error_array is None):
+        raise KeyError("Choose an error_estimator")
+    data_yerr = power_f.error_array
     minuit,model = run_minuit(data_x,data_y,data_yerr,minuit_parameters,sigma,power_l_rebin,non_linear_model=non_linear_model,cost_name=cost_name,ncall=ncall,var_minos=var_minos)
     return(minuit,power_f,power_l,model)
 
@@ -196,9 +219,9 @@ def plot_fit(minuit,power_f,power_l,model,mu_bin,legend,name_out="fit_results"):
         minuit_params.append(minuit.params[i].value)
     power_l_rebin = rebin_matter_power(power_l.power_array,power_l.k_array,power_f.k_array[0])
     pf_over_pm_data = power_f.power_array / power_l_rebin
-    if(power_f.error_array is not None): error_array = power_f.error_array/ power_l_rebin
+    if(power_f.error_array is not None): error_array = power_f.error_array / power_l_rebin
     else: error_array = None
-    pf_over_pm_model = model(power_f.k_array,*minuit_params)
+    pf_over_pm_model = model(power_f.k_array,*minuit_params) / power_l_rebin
 
     color = [f"C{i}" for i in range(len(mu_bin))]
 
