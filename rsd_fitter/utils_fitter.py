@@ -143,6 +143,8 @@ def return_key(dictionary,string,default_value):
 def error_estimator(power,model="uncorrelated",**kwargs):
     if(model == "uncorrelated"):
         return(error_estimator_uncorrelated(power,**kwargs))
+    elif(model == "constant"):
+        return(error_estimator_constant(power,**kwargs))
     else:
         raise KeyError("model of error estimator not available")
 
@@ -152,3 +154,8 @@ def error_estimator_uncorrelated(power,**kwargs):
     bin_count = return_key(kwargs,"bin_count",0)
     if((bin_count is None)|(epsilon is None)): return KeyError("Need bin_count and epsilon")
     return(power*((1/np.sqrt(bin_count)) + epsilon))
+
+def error_estimator_constant(power,**kwargs):
+    epsilon = return_key(kwargs,"epsilon",None)
+    if(epsilon is None): return KeyError("Need bin_count and epsilon")
+    return(power*epsilon)
