@@ -120,7 +120,6 @@ def cost_function(model,data_x,data_y,data_yerr,cost_name,non_linear_model="0"):
         return(custom_least_squares(model,data_x,data_y,data_yerr,non_linear_model=non_linear_model))
 
 
-
 ### Minuit stuff
 
 
@@ -164,7 +163,7 @@ def fitter_k_mu(pf_file,pk_file,minuit_parameters,sigma,power_weighted=False,cla
     data_x = power_f.k_array
     data_y = power_f.power_array / power_l_rebin
     if(power_f.error_array is not None):
-        data_yerr = power_f.error_array
+        data_yerr = power_f.error_array / power_l_rebin
     else: data_yerr = 0.001 * data_y
     minuit,model = run_minuit(data_x,data_y,data_yerr,minuit_parameters,sigma,power_l_rebin,non_linear_model=non_linear_model,cost_name=cost_name,ncall=ncall,var_minos=var_minos)
     return(minuit,power_f,power_l,model)
