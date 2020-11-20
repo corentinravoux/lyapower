@@ -187,8 +187,7 @@ class PowerSpectrum(object):
         fig.savefig("{}.pdf".format(name_out),format="pdf")
 
     def close_fig(self):
-        fig =plt.gcf()
-        fig.close()
+        plt.close()
 
     def open_fig(self):
         fig = plt.figure()
