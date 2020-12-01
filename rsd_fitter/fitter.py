@@ -4,6 +4,7 @@ from iminuit import Minuit
 import scipy.interpolate
 from rsd_fitter import power_spectra
 from rsd_fitter import CLASS
+from rsd_fitter import utils_fitter
 
 
 
@@ -178,6 +179,9 @@ def run_hesse(minuit):
 def fitter_k_mu(pf_file,pk_file,minuit_parameters,sigma,power_weighted=False,class_dict=None,z_simu=None,non_linear_model="0",cost_name="least",ncall=100,kmax=None,kmin=None,var_minos=None,error_estimator=None,**kwargs):
     power_f = read_pfkmu(pf_file,power_weighted=power_weighted,error_estimator=error_estimator,**kwargs)
     power_f.cut_extremum(kmin,kmax)
+    rebin = utils_fitter.return_key(kwargs,"rebin",None)
+    if(rebin is not None):
+        power_f.rebin_2d_arrays(rebin)
     if(pk_file == "class"):
         power_l = Pl_class(power_f.k_array[0],class_dict,z_simu,name="class")
     else:
@@ -232,10 +236,10 @@ def plot_fit(minuit,power_f,power_l,model,mu_bin,legend,name_out="fit_results"):
 
     h_normalized = power_l.h_normalized
     power2 = power_spectra.FluxPowerSpectrum(k_array=power_f.k_array,power_array= pf_over_pm_data,error_array=error_array,dimension="3D",h_normalized=h_normalized)
-    power2.plot_2d_pk(mu_bin,legend=legend,ps="x",ls="None",color=color,y_label=r"$P_f/P_l$")
+    power2.plot_2d_pk(mu_bin,legend=legend,ps="x",ls="None",color=color,y_label=r"$P_f/P_l$",y_unit=False)
     power2.save_fig(name_out)
     power2.close_fig()
-    
+
     minuit_to_latex(minuit,name=name_out)
 
 

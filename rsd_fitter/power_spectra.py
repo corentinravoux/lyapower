@@ -85,6 +85,37 @@ class PowerSpectrum(object):
 
 
 
+    def rebin_2d_arrays(self,nb_bin,operation="mean"):
+        if nb_bin is None : return()
+        new_k = np.logspace(np.log10(min(self.k_array[0])),np.log10(max(self.k_array[0])),nb_bin)
+        bin_centers= np.array([0.5 * (new_k[i] + new_k[i+1]) for i in range(len(new_k)-1)])
+        mus = np.unique(self.k_array[1])
+        new_Pk = np.zeros(len(mus) * len(bin_centers))
+        for j in range(len(mus)):
+            for i in range(nb_bin-1):
+                mask = (self.k_array[0] >= new_k[i])
+                mask &= (self.k_array[0] < new_k[i+1])
+                mask &= (self.k_array[1] == mus[j])
+                if operation.lower() in ["mean", "average", "avg"]:
+                    if(len(self.power_array[mask])==0):
+                        nearest_index = np.argmin(np.abs(self.k_array[0] - new_k[i]))
+                        new_Pk[i*len(mus) + j] = self.power_array[nearest_index]
+                    else :
+                        new_Pk[i*len(mus) + j] = np.mean(self.power_array[mask])
+                elif operation.lower() in ["gauss"]:
+                    from scipy import signal
+                    gaussian_weights = signal.gaussian(int(len(self.power_array[mask])),int(len(self.power_array[mask]))/4)
+                    if(len(self.power_array[mask])==0):
+                        nearest_index = np.argmin(np.abs(self.k_array - new_k[i]))
+                        new_Pk[i*len(mus) + j] = self.power_array[nearest_index]
+                    else :
+                        new_Pk[i*len(mus) + j] = np.average(self.power_array[mask],axis=0,weights=gaussian_weights)
+
+        new_2d_k = np.transpose([[bin_centers[i],mus[j]] for i in range(len(bin_centers)) for j in range(len(mus))])
+        self.k_array=new_2d_k
+        self.power_array=new_Pk
+
+
     def cut_extremum(self,kmin,kmax):
         mask = np.full(self.power_array.shape,True)
         if(kmin is not None):
@@ -96,13 +127,21 @@ class PowerSpectrum(object):
         if(self.error_array is not None):self.error_array = self.error_array[mask]
 
 
-    def put_label(self,y_label ="P"):
-        if(self.h_normalized):
-            plt.ylabel(f"{y_label}" + r"[$\rm{h}^{-3}.\rm{Mpc}^3$]")
-            plt.xlabel(r"k [$\rm{h}.\rm{Mpc}^{-1}$]")
-        else:
-            plt.ylabel(f"{y_label}" + r"[$\rm{Mpc}^3$]")
-            plt.xlabel(r"k [$\rm{Mpc}^{-1}$]")
+    def put_label(self,xunit=True,yunit=True,y_label ="P",x_label="k"):
+        ylab,xlab = "",""
+        if(yunit):
+            if(self.h_normalized):
+                ylab = r" [$\rm{h}^{-3}.\rm{Mpc}^3$]"
+            else:
+                ylab = r" [$\rm{Mpc}^3$]"
+        if(xunit):
+            if(self.h_normalized):
+                xlab = r" [$\rm{h}.\rm{Mpc}^{-1}$]"
+            else:
+                xlab = r" [$\rm{Mpc}^{-1}$]"
+        plt.ylabel(f"{y_label}{ylab}")
+        plt.xlabel(f"{x_label}{xlab}")
+
 
 
     def plot_1d_pk(self,flux_factor = None,**kwargs):
@@ -112,7 +151,10 @@ class PowerSpectrum(object):
 
 
     def plot_2d_pk(self,bin_edges,flux_factor = None,**kwargs):
-        self.put_label(utils.return_key(kwargs,"y_label","P"))
+        self.put_label(xunit = utils.return_key(kwargs,"x_unit",True),
+                       yunit = utils.return_key(kwargs,"y_unit",True),
+                       x_label = utils.return_key(kwargs,"x_label","k"),
+                       y_label = utils.return_key(kwargs,"y_label","P"))
         bin_start = 0.0
         for i in range(len(bin_edges)):
             mask = (self.k_array[1] < bin_edges[i]) & (self.k_array[1] >= bin_start)
