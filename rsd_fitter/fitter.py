@@ -61,6 +61,21 @@ def Pl_class(k_array,settings,z,name="class"):
     return(power)
 
 
+def Pm_normalized(pm_file,class_dict,z_simu,z_init,name="pmnorm"):
+    power_m = read_pk(pm_file)
+    k_array = power_m.k_array
+    my_class =CLASS.MyClass(os.getcwd(),class_dict)
+    kmin,kmax,nb_points = np.log10(np.min(k_array)),np.log10(np.max(k_array)),4*len(k_array)
+    (Power,Transfer,sigma_8) = my_class.write_pk_tk(z_simu,name,kmin=kmin,kmax=kmax,nb_points=nb_points)
+    (Power_init,Transfer_init,sigma_8_init) = my_class.write_pk_tk(z_init,name,kmin=kmin,kmax=kmax,nb_points=nb_points)
+    interp_power = scipy.interpolate.interp1d(Power[:,0],Power[:,1],bounds_error=False,fill_value=np.nan)
+    interp_power_init = scipy.interpolate.interp1d(Power_init[:,0],Power_init[:,1],bounds_error=False,fill_value=np.nan)
+    power = power_m.power_array * (interp_power(k_array)/interp_power_init(k_array))
+    h_normalized = True
+    power = power_spectra.MatterPowerSpectrum(k_array=k_array,power_array=power,dimension="1D",specie="matter",h_normalized=h_normalized)
+    return(power)
+
+
 def Pf_model(linear_power_spectrum,non_linear_model="0"):
 
     def modelD0(x,b,beta,k_nl,a_nl,k_p,a_p,k_v0,a_v0,k_v1,a_v1):
@@ -176,7 +191,7 @@ def run_hesse(minuit):
 
 
 
-def fitter_k_mu(pf_file,pk_file,minuit_parameters,sigma,power_weighted=False,class_dict=None,z_simu=None,non_linear_model="0",cost_name="least",ncall=100,kmax=None,kmin=None,var_minos=None,error_estimator=None,**kwargs):
+def fitter_k_mu(pf_file,pk_file,minuit_parameters,sigma,power_weighted=False,class_dict=None,z_simu=None,z_init=None,non_linear_model="0",cost_name="least",ncall=100,kmax=None,kmin=None,var_minos=None,pm_file=None,error_estimator=None,**kwargs):
     power_f = read_pfkmu(pf_file,power_weighted=power_weighted,error_estimator=error_estimator,**kwargs)
     power_f.cut_extremum(kmin,kmax)
     rebin = utils_fitter.return_key(kwargs,"rebin",None)
@@ -184,6 +199,8 @@ def fitter_k_mu(pf_file,pk_file,minuit_parameters,sigma,power_weighted=False,cla
         power_f.rebin_2d_arrays(rebin)
     if(pk_file == "class"):
         power_l = Pl_class(power_f.k_array[0],class_dict,z_simu,name="class")
+    elif(pk_file == "pmnorm"):
+        power_l = Pm_normalized(pm_file,class_dict,z_simu,z_init,name="pmnorm")
     else:
         power_l = read_pk(pk_file,power_weighted=power_weighted)
     power_l_rebin = rebin_matter_power(power_l.power_array,power_l.k_array,power_f.k_array[0])
