@@ -66,8 +66,8 @@ def Pm_normalized(pm_file,class_dict,z_simu,z_init,name="pmnorm"):
     k_array = power_m.k_array
     my_class =CLASS.MyClass(os.getcwd(),class_dict)
     kmin,kmax,nb_points = np.log10(np.min(k_array)),np.log10(np.max(k_array)),4*len(k_array)
-    (Power,Transfer,sigma_8) = my_class.write_pk_tk(z_simu,name,kmin=kmin,kmax=kmax,nb_points=nb_points)
-    (Power_init,Transfer_init,sigma_8_init) = my_class.write_pk_tk(z_init,name,kmin=kmin,kmax=kmax,nb_points=nb_points)
+    (Power,Transfer,sigma_8) = my_class.write_pk_tk(z_simu,name,kmin=kmin,kmax=kmax,nb_points=nb_points,verbose=False)
+    (Power_init,Transfer_init,sigma_8_init) = my_class.write_pk_tk(z_init,name,kmin=kmin,kmax=kmax,nb_points=nb_points,verbose=False)
     interp_power = scipy.interpolate.interp1d(Power[:,0],Power[:,1],bounds_error=False,fill_value=np.nan)
     interp_power_init = scipy.interpolate.interp1d(Power_init[:,0],Power_init[:,1],bounds_error=False,fill_value=np.nan)
     power = power_m.power_array * (interp_power(k_array)/interp_power_init(k_array))
@@ -170,15 +170,14 @@ def run_minuit(data_x,data_y,data_yerr,minuit_parameters,sigma,linear_power_spec
     minuit = Minuit(cost,**minuit_parameters)
     print(run_migrad(minuit,ncall=ncall))
     run_hesse(minuit)
-    run_minos(minuit,sigma,ncall=ncall,var_minos=var_minos)
+    #run_minos(minuit,sigma,ncall=ncall,var_minos=var_minos)
     return(minuit,model)
 
 def run_migrad(minuit,ncall=1000):
     return(minuit.migrad(ncall,resume=True))
 
 def run_minos(minuit,sigma,ncall=1000,var_minos=None):
-    if(minuit.valid):
-        return(minuit.minos(var=var_minos,sigma=sigma,ncall=ncall))
+    return(minuit.minos(var=var_minos,sigma=sigma,ncall=ncall))
 
 def run_hesse(minuit):
     return(minuit.hesse())
@@ -191,7 +190,7 @@ def run_hesse(minuit):
 
 
 
-def fitter_k_mu(pf_file,pk_file,minuit_parameters,sigma,power_weighted=False,class_dict=None,z_simu=None,z_init=None,non_linear_model="0",cost_name="least",ncall=100,kmax=None,kmin=None,var_minos=None,pm_file=None,error_estimator=None,**kwargs):
+def fitter_k_mu(pf_file,pk_file,minuit_parameters,sigma,power_weighted=False,class_dict=None,z_simu=None,z_init=None,non_linear_model="0",cost_name="least",ncall=100,kmax=None,kmin=None,var_minos=None,name_pm_file=None,error_estimator=None,**kwargs):
     power_f = read_pfkmu(pf_file,power_weighted=power_weighted,error_estimator=error_estimator,**kwargs)
     power_f.cut_extremum(kmin,kmax)
     rebin = utils_fitter.return_key(kwargs,"rebin",None)
@@ -200,7 +199,7 @@ def fitter_k_mu(pf_file,pk_file,minuit_parameters,sigma,power_weighted=False,cla
     if(pk_file == "class"):
         power_l = Pl_class(power_f.k_array[0],class_dict,z_simu,name="class")
     elif(pk_file == "pmnorm"):
-        power_l = Pm_normalized(pm_file,class_dict,z_simu,z_init,name="pmnorm")
+        power_l = Pm_normalized(name_pm_file,class_dict,z_simu,z_init,name="pmnorm")
     else:
         power_l = read_pk(pk_file,power_weighted=power_weighted)
     power_l_rebin = rebin_matter_power(power_l.power_array,power_l.k_array,power_f.k_array[0])
@@ -236,8 +235,8 @@ def plot_pf_pm(power_f,power_m,mu_bin,legend):
 
 def plot_fit(minuit,power_f,power_l,model,mu_bin,legend,name_out="fit_results"):
     minuit_params = []
-    for i in range(len(minuit.params)):
-        minuit_params.append(minuit.params[i].value)
+    for i in range(len(minuit.parameters)):
+        minuit_params.append(minuit.parameters[i].value)
     power_l_rebin = rebin_matter_power(power_l.power_array,power_l.k_array,power_f.k_array[0])
     pf_over_pm_data = power_f.power_array / power_l_rebin
     if(power_f.error_array is not None): error_array = power_f.error_array / power_l_rebin
