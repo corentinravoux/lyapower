@@ -236,7 +236,7 @@ def plot_pf_pm(power_f,power_m,mu_bin,legend):
 def plot_fit(minuit,power_f,power_l,model,mu_bin,legend,name_out="fit_results"):
     minuit_params = []
     for i in range(len(minuit.parameters)):
-        minuit_params.append(minuit.parameters[i].value)
+        minuit_params.append(minuit.values.values()[i])
     power_l_rebin = rebin_matter_power(power_l.power_array,power_l.k_array,power_f.k_array[0])
     pf_over_pm_data = power_f.power_array / power_l_rebin
     if(power_f.error_array is not None): error_array = power_f.error_array / power_l_rebin
@@ -254,7 +254,6 @@ def plot_fit(minuit,power_f,power_l,model,mu_bin,legend,name_out="fit_results"):
     power2 = power_spectra.FluxPowerSpectrum(k_array=power_f.k_array,power_array= pf_over_pm_data,error_array=error_array,dimension="3D",h_normalized=h_normalized)
     power2.plot_2d_pk(mu_bin,legend=legend,ps="x",ls="None",color=color,y_label=r"$P_f/P_l$",y_unit=False)
     power2.save_fig(name_out)
-    power2.close_fig()
 
     minuit_to_latex(minuit,name=name_out)
 

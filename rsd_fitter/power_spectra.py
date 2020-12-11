@@ -91,6 +91,7 @@ class PowerSpectrum(object):
         bin_centers= np.array([0.5 * (new_k[i] + new_k[i+1]) for i in range(len(new_k)-1)])
         mus = np.unique(self.k_array[1])
         new_Pk = np.zeros(len(mus) * len(bin_centers))
+        if(self.error_array is not None): new_error_array = np.zeros(len(mus) * len(bin_centers))
         for j in range(len(mus)):
             for i in range(nb_bin-1):
                 mask = (self.k_array[0] >= new_k[i])
@@ -100,20 +101,29 @@ class PowerSpectrum(object):
                     if(len(self.power_array[mask])==0):
                         nearest_index = np.argmin(np.abs(self.k_array[0] - new_k[i]))
                         new_Pk[i*len(mus) + j] = self.power_array[nearest_index]
+                        if(self.error_array is not None):
+                            new_error_array[i*len(mus) + j] = self.error_array[nearest_index]
                     else :
                         new_Pk[i*len(mus) + j] = np.mean(self.power_array[mask])
+                        if(self.error_array is not None):
+                            new_error_array[i*len(mus) + j] = np.mean(self.error_array[mask])
                 elif operation.lower() in ["gauss"]:
                     from scipy import signal
                     gaussian_weights = signal.gaussian(int(len(self.power_array[mask])),int(len(self.power_array[mask]))/4)
                     if(len(self.power_array[mask])==0):
                         nearest_index = np.argmin(np.abs(self.k_array - new_k[i]))
                         new_Pk[i*len(mus) + j] = self.power_array[nearest_index]
+                        if(self.error_array is not None):
+                            new_error_array[i*len(mus) + j] = self.error_array[nearest_index]
                     else :
                         new_Pk[i*len(mus) + j] = np.average(self.power_array[mask],axis=0,weights=gaussian_weights)
+                        if(self.error_array is not None):
+                            new_error_array[i*len(mus) + j] = np.average(self.error_array[mask],axis=0,weights=gaussian_weights)
 
         new_2d_k = np.transpose([[bin_centers[i],mus[j]] for i in range(len(bin_centers)) for j in range(len(mus))])
         self.k_array=new_2d_k
         self.power_array=new_Pk
+        if(self.error_array is not None): self.error_array = new_error_array
 
 
     def cut_extremum(self,kmin,kmax):
