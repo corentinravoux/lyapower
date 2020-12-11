@@ -163,11 +163,14 @@ def cost_function(model,data_x,data_y,data_yerr,cost_name,non_linear_model="0"):
 ### Minuit stuff
 
 
-def run_minuit(data_x,data_y,data_yerr,minuit_parameters,sigma,linear_power_spectrum,non_linear_model="0",cost_name="least",ncall=100,var_minos=None):
+def run_minuit(data_x,data_y,data_yerr,minuit_parameters,sigma,linear_power_spectrum,non_linear_model="0",cost_name="least",ncall=100,var_minos=None,fix_args=None):
     model = Pf_model(linear_power_spectrum,non_linear_model=non_linear_model)
     cost = cost_function(model,data_x,data_y,data_yerr,cost_name,non_linear_model=non_linear_model)
     minuit_parameters.update({"errordef":1, "pedantic":False, "print_level": 0})
     minuit = Minuit(cost,**minuit_parameters)
+    if(fix_args is not None):
+        for i in range(len(fix_args)):
+            minuit.fixed[fix_args[i]] = True
     print(run_migrad(minuit,ncall=ncall))
     run_hesse(minuit)
     #run_minos(minuit,sigma,ncall=ncall,var_minos=var_minos)
@@ -190,7 +193,7 @@ def run_hesse(minuit):
 
 
 
-def fitter_k_mu(pf_file,pk_file,minuit_parameters,sigma,power_weighted=False,class_dict=None,z_simu=None,z_init=None,non_linear_model="0",cost_name="least",ncall=100,kmax=None,kmin=None,var_minos=None,name_pm_file=None,error_estimator=None,**kwargs):
+def fitter_k_mu(pf_file,pk_file,minuit_parameters,sigma,power_weighted=False,class_dict=None,z_simu=None,z_init=None,non_linear_model="0",cost_name="least",ncall=100,kmax=None,kmin=None,var_minos=None,name_pm_file=None,error_estimator=None,fix_args=None,**kwargs):
     power_f = read_pfkmu(pf_file,power_weighted=power_weighted,error_estimator=error_estimator,**kwargs)
     power_f.cut_extremum(kmin,kmax)
     rebin = utils_fitter.return_key(kwargs,"rebin",None)
@@ -208,9 +211,27 @@ def fitter_k_mu(pf_file,pk_file,minuit_parameters,sigma,power_weighted=False,cla
     if(power_f.error_array is None):
         raise KeyError("Choose an error_estimator")
     data_yerr = power_f.error_array
-    minuit,model = run_minuit(data_x,data_y,data_yerr,minuit_parameters,sigma,power_l_rebin,non_linear_model=non_linear_model,cost_name=cost_name,ncall=ncall,var_minos=var_minos)
+    minuit,model = run_minuit(data_x,data_y,data_yerr,minuit_parameters,sigma,power_l_rebin,non_linear_model=non_linear_model,cost_name=cost_name,ncall=ncall,var_minos=var_minos,fix_args=fix_args)
     return(minuit,power_f,power_l,model)
 
+
+
+def compute_kna(minuit,power_l,eps,nloopmax=1000):
+    values = dict(minuit.values.items())
+    av,kv,beta,q1 = values["a_v"],values["k_v"],values["beta"],values["q_1"]
+    power_l_interp = scipy.interpolate.interp1d(power_l.k_array,power_l.power_array,bounds_error=False,fill_value=np.nan)
+    kna0 = 3
+    knai = kna0
+    diff = np.inf
+    n = 0
+    while((diff > eps)|(n<nloopmax)):
+        knai2 = (((2*np.pi)**2 * kv**av *np.log(1 + beta))/(q1* power_l_interp(knai)))**(1/(3+av))
+        diff = abs(knai2 - knai)
+        knai = knai2
+        n+=1
+    if(n == nloopmax):
+        raise Warning("Maximal loop iteration reached")
+    return(knai)
 
 ### Plots
 

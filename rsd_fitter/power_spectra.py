@@ -61,7 +61,6 @@ class PowerSpectrum(object):
 
 
     def rebin_arrays(self,nb_bin,operation="mean"):
-        if nb_bin is None : return()
         new_k = np.logspace(np.log10(min(self.k_array)),np.log10(max(self.k_array)),nb_bin)
         new_Pk = np.zeros(new_k.shape)
         for i in range(nb_bin-1):
@@ -85,10 +84,10 @@ class PowerSpectrum(object):
 
 
 
-    def rebin_2d_arrays(self,nb_bin,operation="mean"):
-        if nb_bin is None : return()
+    def rebin_2d_arrays(self,nb_bin,operation="mean",kmin=None):
         new_k = np.logspace(np.log10(min(self.k_array[0])),np.log10(max(self.k_array[0])),nb_bin)
         bin_centers= np.array([0.5 * (new_k[i] + new_k[i+1]) for i in range(len(new_k)-1)])
+        # mask = new_k[0] > kmin
         mus = np.unique(self.k_array[1])
         new_Pk = np.zeros(len(mus) * len(bin_centers))
         if(self.error_array is not None): new_error_array = np.zeros(len(mus) * len(bin_centers))
