@@ -224,7 +224,7 @@ def compute_kna(minuit,power_l,eps,nloopmax=1000):
     knai = kna0
     diff = np.inf
     n = 0
-    while((diff > eps)|(n<nloopmax)):
+    while((diff > eps)&(n<nloopmax)):
         knai2 = (((2*np.pi)**2 * kv**av *np.log(1 + beta))/(q1* power_l_interp(knai)))**(1/(3+av))
         diff = abs(knai2 - knai)
         knai = knai2
