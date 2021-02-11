@@ -136,7 +136,7 @@ class PowerSpectrum(object):
         if(self.error_array is not None):self.error_array = self.error_array[mask]
 
 
-    def put_label(self,xunit=True,yunit=True,y_label ="P",x_label="k"):
+    def put_label(self,ax,xunit=True,yunit=True,y_label ="P",x_label="k",labelsize_x=12,labelsize_y=12,fontsize=12):
         ylab,xlab = "",""
         if(yunit):
             if(self.h_normalized):
@@ -148,39 +148,70 @@ class PowerSpectrum(object):
                 xlab = r" [$\rm{h}.\rm{Mpc}^{-1}$]"
             else:
                 xlab = r" [$\rm{Mpc}^{-1}$]"
-        plt.ylabel(f"{y_label}{ylab}")
-        plt.xlabel(f"{x_label}{xlab}")
+        ax.tick_params(axis='y', labelsize=labelsize_y)
+        ax.set_ylabel(f"{y_label}{ylab}", fontsize=fontsize)
+        ax.tick_params(axis='y', labelsize=labelsize_x)
+        ax.set_xlabel(f"{x_label}{xlab}", fontsize=fontsize)
 
 
 
-    def plot_1d_pk(self,flux_factor = None,**kwargs):
-        self.put_label()
+    def plot_1d_pk(self,**kwargs):
+        ax = utils.return_key(kwargs,"ax",plt.gca())
+        self.put_label(ax)
         plt.title("Power spectrum")
         plt.loglog(self.k_array,self.power_array,marker = utils.return_key(kwargs,"ps",None), linestyle= utils.return_key(kwargs,"ls","-"), color=utils.return_key(kwargs,"color",None))
 
 
-    def plot_2d_pk(self,bin_edges,flux_factor = None,**kwargs):
-        self.put_label(xunit = utils.return_key(kwargs,"x_unit",True),
+    def plot_2d_pk(self,bin_edges,**kwargs):
+        comparison = utils.return_key(kwargs,"comparison",None)
+        ax = utils.return_key(kwargs,"ax",plt.gca())
+        self.put_label(ax,
+                       xunit = utils.return_key(kwargs,"x_unit",True),
                        yunit = utils.return_key(kwargs,"y_unit",True),
                        x_label = utils.return_key(kwargs,"x_label","k"),
-                       y_label = utils.return_key(kwargs,"y_label","P"))
+                       y_label = utils.return_key(kwargs,"y_label","P"),
+                       labelsize_x = utils.return_key(kwargs,"labelsize_x",12),
+                       labelsize_y = utils.return_key(kwargs,"labelsize_y",12),
+                       fontsize = utils.return_key(kwargs,"fontsize",12))
         bin_start = 0.0
         for i in range(len(bin_edges)):
             mask = (self.k_array[1] < bin_edges[i]) & (self.k_array[1] >= bin_start)
             c = kwargs["color"][i] if "color" in kwargs.keys() else None
-            if(self.error_array is not None):
-                plt.errorbar(self.k_array[0][mask],self.power_array[mask],self.error_array[mask],marker = utils.return_key(kwargs,"ps",None), linestyle= utils.return_key(kwargs,"ls","-"), color=c)
+            if(comparison is not None):
+                if((self.error_array is not None)&(comparison.error_array is not None)):
+                    ax.errorbar(self.k_array[0][mask],
+                                (comparison.power_array[mask] - self.power_array[mask])/self.power_array[mask],
+                                (comparison.power_array[mask]/self.power_array[mask]) * np.sqrt((comparison.error_array[mask]/comparison.power_array[mask])**2 +  (self.error_array[mask]/self.power_array[mask])**2),
+                                marker = utils.return_key(kwargs,"ps",None),
+                                linestyle= utils.return_key(kwargs,"ls","-"),
+                                color=c)
+                else:
+                    ax.plot(self.k_array[0][mask],
+                            (self.power_array[mask] - comparison.power_array[mask])/self.power_array[mask],
+                            marker = utils.return_key(kwargs,"ps",None),
+                            linestyle= utils.return_key(kwargs,"ls","-"),
+                            color=c)
             else:
-                plt.plot(self.k_array[0][mask],self.power_array[mask],marker = utils.return_key(kwargs,"ps",None), linestyle= utils.return_key(kwargs,"ls","-"), color=c)
+                if(self.error_array is not None):
+                    ax.errorbar(self.k_array[0][mask],
+                                self.power_array[mask],
+                                self.error_array[mask],
+                                marker = utils.return_key(kwargs,"ps",None),
+                                linestyle= utils.return_key(kwargs,"ls","-"),
+                                color=c)
+                else:
+                    ax.plot(self.k_array[0][mask],
+                            self.power_array[mask],
+                            marker = utils.return_key(kwargs,"ps",None),
+                            linestyle= utils.return_key(kwargs,"ls","-"),
+                            color=c)
             bin_start = bin_edges[i]
         xscale = utils.return_key(kwargs,"xscale","log")
         yscale = utils.return_key(kwargs,"yscale","log")
-        plt.xscale(xscale)
-        plt.yscale(yscale)
-        plt.legend(utils.return_key(kwargs,"legend",[]))
-        plt.title("Power spectrum")
-
-
+        ax.set_xscale(xscale)
+        ax.set_yscale(yscale)
+        ax.legend(utils.return_key(kwargs,"legend",[]))
+        ax.set_title(utils.return_key(kwargs,"title","Power spectrum"))
 
 
     def plot_several_power_spectrum(self,Pks,k_space,name,legend):
