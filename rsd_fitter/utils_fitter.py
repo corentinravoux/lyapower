@@ -152,10 +152,10 @@ def error_estimator(power,model="uncorrelated",**kwargs):
 def error_estimator_uncorrelated(power,**kwargs):
     epsilon = return_key(kwargs,"epsilon",None)
     bin_count = return_key(kwargs,"bin_count",None)
-    if((bin_count is None)|(epsilon is None)): return KeyError("Need bin_count and epsilon")
+    if((bin_count is None)|(epsilon is None)): raise KeyError("Need bin_count and epsilon")
     return(power*((1/np.sqrt(bin_count)) + epsilon))
 
 def error_estimator_constant(power,**kwargs):
     epsilon = return_key(kwargs,"epsilon",None)
-    if(epsilon is None): return KeyError("Need bin_count and epsilon")
+    if(epsilon is None): raise KeyError("Need bin_count and epsilon")
     return(power*epsilon)
