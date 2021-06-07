@@ -7,13 +7,23 @@ from rsd_fitter import CLASS
 from rsd_fitter import utils_fitter
 
 
+def read_pfkmu_hdf5(filename,field_name,power_weighted=False,error_estimator=None,**kwargs):
+    power = power_spectra.FluxPowerSpectrum.init_from_gimlet(filename,"hdf5",
+                                                             kmu=True,
+                                                             power_weighted=power_weighted,
+                                                             error_estimator=error_estimator,
+                                                             field_name=field_name,
+                                                             **kwargs)
+    return(power)
+
+
 
 def read_pfkmu(filename,power_weighted=False,error_estimator=None,**kwargs):
-    power = power_spectra.FluxPowerSpectrum.init_from_gimlet(filename,kmu=True,power_weighted=power_weighted,error_estimator=error_estimator,**kwargs)
+    power = power_spectra.FluxPowerSpectrum.init_from_gimlet(filename,"txt",kmu=True,power_weighted=power_weighted,error_estimator=error_estimator,**kwargs)
     return(power)
 
 def read_pfkperpkpar(filename,power_weighted=False,error_estimator=None,**kwargs):
-    power = power_spectra.FluxPowerSpectrum.init_from_gimlet(filename,kmu=False,power_weighted=power_weighted,error_estimator=error_estimator,**kwargs)
+    power = power_spectra.FluxPowerSpectrum.init_from_gimlet(filename,"txt",kmu=False,power_weighted=power_weighted,error_estimator=error_estimator,**kwargs)
     return(power)
 
 def read_pk(filename,power_weighted=False,error_estimator=None,**kwargs):
@@ -192,11 +202,21 @@ def run_hesse(minuit):
 
 
 
-
-def fitter_k_mu(pf_file,pk_file,minuit_parameters,sigma,power_weighted=False,class_dict=None,z_simu=None,z_init=None,non_linear_model="0",cost_name="least",ncall=100,kmax=None,kmin=None,var_minos=None,name_pm_file=None,error_estimator=None,fix_args=None,**kwargs):
+def prepare_data(pf_file,
+                 pk_file,
+                 power_weighted=False,
+                 class_dict=None,
+                 z_simu=None,
+                 z_init=None,
+                 kmax=None,
+                 kmin=None,
+                 name_pm_file=None,
+                 error_estimator=None,
+                 **kwargs):
     power_f = read_pfkmu(pf_file,power_weighted=power_weighted,error_estimator=error_estimator,**kwargs)
     power_f.cut_extremum(kmin,kmax)
     rebin = utils_fitter.return_key(kwargs,"rebin",None)
+
     if(rebin is not None):
         power_f.rebin_2d_arrays(rebin)
     if(pk_file == "class"):
@@ -205,13 +225,61 @@ def fitter_k_mu(pf_file,pk_file,minuit_parameters,sigma,power_weighted=False,cla
         power_l = Pm_normalized(name_pm_file,class_dict,z_simu,z_init,name="pmnorm")
     else:
         power_l = read_pk(pk_file,power_weighted=power_weighted)
+
     power_l_rebin = rebin_matter_power(power_l.power_array,power_l.k_array,power_f.k_array[0])
     data_x = power_f.k_array
     data_y = power_f.power_array
     if(power_f.error_array is None):
         raise KeyError("Choose an error_estimator")
     data_yerr = power_f.error_array
-    minuit,model = run_minuit(data_x,data_y,data_yerr,minuit_parameters,sigma,power_l_rebin,non_linear_model=non_linear_model,cost_name=cost_name,ncall=ncall,var_minos=var_minos,fix_args=fix_args)
+
+    return(power_f,power_l,power_l_rebin,data_x,data_y,data_yerr)
+
+
+
+def fitter_k_mu(pf_file,
+                pk_file,
+                minuit_parameters,
+                sigma,
+                power_weighted=False,
+                class_dict=None,
+                z_simu=None,
+                z_init=None,
+                non_linear_model="0",
+                cost_name="least",
+                ncall=100,
+                kmax=None,
+                kmin=None,
+                var_minos=None,
+                name_pm_file=None,
+                error_estimator=None,
+                fix_args=None,
+                **kwargs):
+    (power_f,power_l,
+     power_l_rebin,
+     data_x,data_y,
+     data_yerr)=prepare_data(pf_file,
+                             pk_file,
+                             power_weighted=power_weighted,
+                             class_dict=class_dict,
+                             z_simu=z_simu,
+                             z_init=z_init,
+                             kmax=kmax,
+                             kmin=kmin,
+                             name_pm_file=name_pm_file,
+                             error_estimator=error_estimator,
+                             **kwargs)
+    minuit,model = run_minuit(data_x,
+                              data_y,
+                              data_yerr,
+                              minuit_parameters,
+                              sigma,
+                              power_l_rebin,
+                              non_linear_model=non_linear_model,
+                              cost_name=cost_name,
+                              ncall=ncall,
+                              var_minos=var_minos,
+                              fix_args=fix_args)
     return(minuit,power_f,power_l,model)
 
 
@@ -251,6 +319,7 @@ def plot_pf_pm(power_f,power_m,mu_bin,legend):
     power_f.open_plot()
     power_m_rebin = rebin_matter_power(power_m.power_array,power_m.k_array,power_f.k_array[0])
     power_f.power_array = power_f.power_array / power_m_rebin
+    power_f.error_array = power_f.error_array / power_m_rebin
     power_f.plot_2d_pk(mu_bin,legend=legend,ps="x")
 
 
@@ -268,14 +337,17 @@ def plot_fit(minuit,power_f,power_l,model,mu_bin,legend,name_out="fit_results"):
 
     h_normalized = power_f.h_normalized
     power1 = power_spectra.FluxPowerSpectrum(k_array=power_f.k_array,power_array= pf_over_pm_model,dimension="3D",h_normalized=h_normalized)
+    power1.open_plot()
+
     power1.plot_2d_pk(mu_bin,color=color)
 
 
     h_normalized = power_l.h_normalized
     power2 = power_spectra.FluxPowerSpectrum(k_array=power_f.k_array,power_array= pf_over_pm_data,error_array=error_array,dimension="3D",h_normalized=h_normalized)
     power2.plot_2d_pk(mu_bin,legend=legend,ps="x",ls="None",color=color,y_label=r"$P_f/P_l$",y_unit=False)
-    power2.save_fig(name_out)
-
+    power2.save_plot(name_out)
+    power2.show_plot()
+    power2.close_plot()
     minuit_to_latex(minuit,name=name_out)
 
 
