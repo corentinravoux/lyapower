@@ -62,6 +62,8 @@ def D1(k,mu,q_1,q_2,k_v,a_v,b_v,k_p,linear_power_spectrum):
 
 
 
+
+
 def Pl_class(k_array,settings,z,name="class"):
     my_class =CLASS.MyClass(os.getcwd(),settings)
     kmin,kmax,nb_points = np.log10(np.min(k_array)),np.log10(np.max(k_array)),2*len(k_array)
@@ -218,7 +220,10 @@ def prepare_data(pf_file,
     rebin = utils_fitter.return_key(kwargs,"rebin",None)
 
     if(rebin is not None):
-        power_f.rebin_2d_arrays(rebin)
+        power_f.rebin_2d_arrays(rebin["nb_bin"],
+                                operation="mean",
+                                loglin=rebin["loglin"],
+                                k_loglin=rebin["k_loglin"])
     if(pk_file == "class"):
         power_l = Pl_class(power_f.k_array[0],class_dict,z_simu,name="class")
     elif(pk_file == "pmnorm"):
@@ -336,16 +341,32 @@ def plot_fit(minuit,power_f,power_l,model,mu_bin,legend,name_out="fit_results"):
     color = [f"C{i}" for i in range(len(mu_bin))]
 
     h_normalized = power_f.h_normalized
-    power1 = power_spectra.FluxPowerSpectrum(k_array=power_f.k_array,power_array= pf_over_pm_model,dimension="3D",h_normalized=h_normalized)
+    power1 = power_spectra.FluxPowerSpectrum(k_array=power_f.k_array,
+                                             power_array= pf_over_pm_model,
+                                             dimension="3D",
+                                             h_normalized=h_normalized)
     power1.open_plot()
 
-    power1.plot_2d_pk(mu_bin,color=color)
 
 
     h_normalized = power_l.h_normalized
-    power2 = power_spectra.FluxPowerSpectrum(k_array=power_f.k_array,power_array= pf_over_pm_data,error_array=error_array,dimension="3D",h_normalized=h_normalized)
-    power2.plot_2d_pk(mu_bin,legend=legend,ps="x",ls="None",color=color,y_label=r"$P_f/P_l$",y_unit=False)
-    power2.save_plot(name_out)
+    power2 = power_spectra.FluxPowerSpectrum(k_array=power_f.k_array,
+                                             power_array= pf_over_pm_data,
+                                             error_array=error_array,
+                                             dimension="3D",
+                                             h_normalized=h_normalized)
+    power2.plot_2d_pk(mu_bin,
+                      legend=legend,
+                      ps="x",
+                      linestyle=["None" for i in range(len(mu_bin))],
+                      color=color,
+                      y_label=r"$P_f/P_l$",
+                      y_unit=False)
+
+
+    power1.plot_2d_pk(mu_bin,color=color)
+
+    power2.save_plot(f"{name_out}.pdf")
     power2.show_plot()
     power2.close_plot()
     minuit_to_latex(minuit,name=name_out)
@@ -367,11 +388,3 @@ def minuit_to_latex(minuit,name=""):
     file = open(f"{name}_minuit_params.tex",'w')
     file.write(minuit.latex_param().__str__())
     file.close()
-
-
-
-
-
-
-
-###
