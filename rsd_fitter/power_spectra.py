@@ -90,52 +90,71 @@ class PowerSpectrum(object):
 
 
 
-    def rebin_2d_arrays(self,nb_bin,operation="mean",kmin=None,loglin=False):
-        # if(loglin):
-        #     new_k = np.logspace(np.log10(min(self.k_array[0])),np.log10(max(self.k_array[0])),nb_bin)
-        #     new_k_space = np.mean(new_k[1:]  - new_k[0:-1])
-        #     old_k_space = self.k_array[0][1:]  - self.k_array[0][0:-1]
-        #     mask = old_k_space >= new_k_space
-        #
-        #     new_k = np.concatenate([self.k_array[0][0:-1][mask],
-        new_k = np.logspace(np.log10(min(self.k_array[0])),np.log10(max(self.k_array[0])),nb_bin)
+    def rebin_2d_arrays(self,
+                        nb_bin,
+                        operation="mean",
+                        loglin=False,
+                        k_loglin=None):
+        if(loglin):
+            mask_k_rebin = self.k_array[0] > k_loglin
+            mu_old = self.k_array[1][mask_k_rebin]
+            k_old = self.k_array[0][mask_k_rebin]
+            power_old = self.power_array[mask_k_rebin]
+            if(self.error_array is not None):
+                error_old = self.error_array[mask_k_rebin]
+        else:
+            mu_old = self.k_array[1]
+            k_old = self.k_array[0]
+            power_old = self.power_array
+            if(self.error_array is not None):
+                error_old = self.error_array
+        new_k = np.logspace(np.log10(min(k_old)),np.log10(max(k_old)),nb_bin)
         bin_centers= np.array([0.5 * (new_k[i] + new_k[i+1]) for i in range(len(new_k)-1)])
-        # mask = new_k[0] > kmin
-        mus = np.unique(self.k_array[1])
+        mus = np.unique(mu_old)
         new_Pk = np.zeros(len(mus) * len(bin_centers))
-        if(self.error_array is not None): new_error_array = np.zeros(len(mus) * len(bin_centers))
+        if(self.error_array is not None):
+            new_error_array = np.zeros(len(mus) * len(bin_centers))
         for j in range(len(mus)):
             for i in range(nb_bin-1):
-                mask = (self.k_array[0] >= new_k[i])
-                mask &= (self.k_array[0] < new_k[i+1])
-                mask &= (self.k_array[1] == mus[j])
+                mask = (k_old >= new_k[i])
+                mask &= (k_old < new_k[i+1])
+                mask &= (mu_old == mus[j])
                 if operation.lower() in ["mean", "average", "avg"]:
-                    if(len(self.power_array[mask])==0):
-                        nearest_index = np.argmin(np.abs(self.k_array[0] - new_k[i]))
-                        new_Pk[i*len(mus) + j] = self.power_array[nearest_index]
+                    if(len(power_old[mask])==0):
+                        nearest_index = np.argmin(np.abs(k_old[0] - new_k[i]))
+                        new_Pk[i*len(mus) + j] = power_old[nearest_index]
                         if(self.error_array is not None):
-                            new_error_array[i*len(mus) + j] = self.error_array[nearest_index]
+                            new_error_array[i*len(mus) + j] = error_old[nearest_index]
                     else :
-                        new_Pk[i*len(mus) + j] = np.mean(self.power_array[mask])
+                        new_Pk[i*len(mus) + j] = np.mean(power_old[mask])
                         if(self.error_array is not None):
-                            new_error_array[i*len(mus) + j] = np.mean(self.error_array[mask])
+                            new_error_array[i*len(mus) + j] = np.mean(error_old[mask])
                 elif operation.lower() in ["gauss"]:
                     from scipy import signal
-                    gaussian_weights = signal.gaussian(int(len(self.power_array[mask])),int(len(self.power_array[mask]))/4)
-                    if(len(self.power_array[mask])==0):
-                        nearest_index = np.argmin(np.abs(self.k_array - new_k[i]))
-                        new_Pk[i*len(mus) + j] = self.power_array[nearest_index]
+                    gaussian_weights = signal.gaussian(int(len(power_old[mask])),int(len(power_old[mask]))/4)
+                    if(len(power_old[mask])==0):
+                        nearest_index = np.argmin(np.abs(k_old - new_k[i]))
+                        new_Pk[i*len(mus) + j] = power_old[nearest_index]
                         if(self.error_array is not None):
-                            new_error_array[i*len(mus) + j] = self.error_array[nearest_index]
+                            new_error_array[i*len(mus) + j] = error_old[nearest_index]
                     else :
-                        new_Pk[i*len(mus) + j] = np.average(self.power_array[mask],axis=0,weights=gaussian_weights)
+                        new_Pk[i*len(mus) + j] = np.average(power_old[mask],axis=0,weights=gaussian_weights)
                         if(self.error_array is not None):
-                            new_error_array[i*len(mus) + j] = np.average(self.error_array[mask],axis=0,weights=gaussian_weights)
+                            new_error_array[i*len(mus) + j] = np.average(error_old[mask],axis=0,weights=gaussian_weights)
+
 
         new_2d_k = np.transpose([[bin_centers[i],mus[j]] for i in range(len(bin_centers)) for j in range(len(mus))])
-        self.k_array=new_2d_k
-        self.power_array=new_Pk
-        if(self.error_array is not None): self.error_array = new_error_array
+        if(loglin):
+            self.k_array = np.array([np.concatenate([self.k_array[0][~mask_k_rebin],new_2d_k[0]]),
+                                     np.concatenate([self.k_array[1][~mask_k_rebin],new_2d_k[1]])])
+            self.power_array = np.concatenate([self.power_array[~mask_k_rebin],new_Pk])
+            if(self.error_array is not None):
+                self.error_array = np.concatenate([self.error_array[~mask_k_rebin],new_error_array])
+        else:
+            self.k_array=new_2d_k
+            self.power_array=new_Pk
+            if(self.error_array is not None):
+                self.error_array = new_error_array
 
 
     def cut_extremum(self,kmin,kmax):
@@ -168,16 +187,7 @@ class PowerSpectrum(object):
 
 
 
-    def plot_1d_pk(self,**kwargs):
-        ax = utils.return_key(kwargs,"ax",plt.gca())
-        self.put_label(ax)
-        plt.title("Power spectrum")
-        plt.loglog(self.k_array,self.power_array,marker = utils.return_key(kwargs,"ps",None), linestyle= utils.return_key(kwargs,"ls","-"), color=utils.return_key(kwargs,"color",None))
-
-
-    def plot_2d_pk(self,bin_edges,**kwargs):
-        comparison = utils.return_key(kwargs,"comparison",None)
-        k_multiplication = utils.return_key(kwargs,"k_multiplication",False)
+    def prepare_axes(self,kwargs):
         ax = utils.return_key(kwargs,"ax", plt.gcf().get_axes())
         if(len(ax) == 0):
             ax_to_plot = plt.gca()
@@ -188,6 +198,67 @@ class PowerSpectrum(object):
         else:
             ax_to_plot = ax[0]
             ax_comparison = ax[1]
+        return(ax_to_plot,ax_comparison)
+
+
+
+    def plot_1d_pk(self,**kwargs):
+        comparison = utils.return_key(kwargs,"comparison",None)
+        (ax_to_plot,ax_comparison) = self.prepare_axes(kwargs)
+        self.put_label(ax_to_plot)
+
+        color = utils.return_key(kwargs,"color",None)
+
+
+        if(comparison is not None):
+            power_array_comparison = interp1d(self.k_array,
+                                              self.power_array,
+                                              bounds_error=False,
+                                              fill_value=np.NaN)(comparison.k_array)
+            ax_comparison.plot(comparison.k_array,
+                               (comparison.power_array - power_array_comparison)/comparison.power_array,
+                               color=color)
+        ax_to_plot.set_title("Power spectrum")
+        ax_to_plot.plot(self.k_array,
+                        self.power_array,
+                        marker = utils.return_key(kwargs,"ps",None),
+                        linestyle= utils.return_key(kwargs,"ls","-"),
+                        color=color)
+
+        xscale = utils.return_key(kwargs,"xscale","log")
+        yscale = utils.return_key(kwargs,"yscale","log")
+
+        ax_to_plot.set_xscale(xscale)
+        ax_to_plot.set_yscale(yscale)
+
+
+        x_min_lim = utils.return_key(kwargs,"x_min_lim",None)
+        x_max_lim = utils.return_key(kwargs,"x_max_lim",None)
+        y_min_lim = utils.return_key(kwargs,"y_min_lim",None)
+        y_max_lim = utils.return_key(kwargs,"y_max_lim",None)
+
+        ax_to_plot.set_xlim(left=x_min_lim,right=x_max_lim)
+        ax_to_plot.set_ylim(bottom=y_min_lim,top=y_max_lim)
+        ax_to_plot.legend(utils.return_key(kwargs,"legend",[]),handles=utils.return_key(kwargs,"legend_elements",None))
+
+
+        if(comparison is not None):
+            x_min_lim_comparison = utils.return_key(kwargs,"x_min_lim_comparison",None)
+            x_max_lim_comparison = utils.return_key(kwargs,"x_max_lim_comparison",None)
+            y_min_lim_comparison = utils.return_key(kwargs,"y_min_lim_comparison",None)
+            y_max_lim_comparison = utils.return_key(kwargs,"y_max_lim_comparison",None)
+
+            ax_comparison.set_xlim(left=x_min_lim_comparison,right=x_max_lim_comparison)
+            ax_comparison.set_ylim(bottom=y_min_lim_comparison,top=y_max_lim_comparison)
+
+
+
+
+
+    def plot_2d_pk(self,bin_edges,**kwargs):
+        comparison = utils.return_key(kwargs,"comparison",None)
+        k_multiplication = utils.return_key(kwargs,"k_multiplication",False)
+        (ax_to_plot,ax_comparison) = self.prepare_axes(kwargs)
         self.put_label(ax_to_plot,
                        xunit = utils.return_key(kwargs,"x_unit",True),
                        yunit = utils.return_key(kwargs,"y_unit",True),
@@ -207,18 +278,19 @@ class PowerSpectrum(object):
                            fontsize = utils.return_key(kwargs,"fontsize_comparison",12))
 
         for i in range(len(bin_edges)):
-            mask = (self.k_array[1] < bin_edges[i][1]) & (self.k_array[1] >= bin_edges[i][0])
+            mask = self.k_array[1] == bin_edges[i]
             c = kwargs["color"][i] if "color" in kwargs.keys() else None
             ls = utils.return_key(kwargs,"linestyle",["-" for i in range(len(bin_edges))])[i]
             if(k_multiplication): factor_multiplication = self.k_array[0][mask]**3 / (2 * np.pi**2)
             else: factor_multiplication = 1
             if(comparison is not None):
-                mask_comparison = (comparison.k_array[1] < bin_edges[i][1]) & (comparison.k_array[1] >= bin_edges[i][0])
+                error_bar_comparison = utils.return_key(kwargs,"error_bar_comparison",True)
+                mask_comparison = comparison.k_array[1] == bin_edges[i]
                 power_array_comparison = interp1d(self.k_array[0][mask],
                                                   self.power_array[mask],
                                                   bounds_error=False,
                                                   fill_value=np.NaN)(comparison.k_array[0][mask_comparison])
-                if((self.error_array is not None)&(comparison.error_array is not None)):
+                if((self.error_array is not None)&(comparison.error_array is not None)&error_bar_comparison):
                     error_array_comparison = interp1d(self.k_array[0][mask],
                                                       self.error_array[mask],
                                                       bounds_error=False,
@@ -262,6 +334,16 @@ class PowerSpectrum(object):
 
         ax_to_plot.set_xlim(left=x_min_lim,right=x_max_lim)
         ax_to_plot.set_ylim(bottom=y_min_lim,top=y_max_lim)
+
+        if(comparison is not None):
+            x_min_lim_comparison = utils.return_key(kwargs,"x_min_lim_comparison",None)
+            x_max_lim_comparison = utils.return_key(kwargs,"x_max_lim_comparison",None)
+            y_min_lim_comparison = utils.return_key(kwargs,"y_min_lim_comparison",None)
+            y_max_lim_comparison = utils.return_key(kwargs,"y_max_lim_comparison",None)
+
+            ax_comparison.set_xlim(left=x_min_lim_comparison,right=x_max_lim_comparison)
+            ax_comparison.set_ylim(bottom=y_min_lim_comparison,top=y_max_lim_comparison)
+
 
 
         ax_to_plot.legend(utils.return_key(kwargs,"legend",[]),handles=utils.return_key(kwargs,"legend_elements",None))
@@ -397,6 +479,21 @@ class MatterPowerSpectrum(PowerSpectrum):
         return(cls(dimension,specie,k_array=k_array,power_array=power,error_array=error,file_init=namefile,size_box=None,h_normalized=h_normalized))
 
 
+    def write_to_gimlet(self,name_out,power_weighted=False):
+        if(power_weighted):
+            pwk  = self.k_array
+            k = np.zeros(self.k_array.shape)
+        else:
+            pwk  = np.zeros(self.k_array.shape)
+            k = self.k_array
+        if(self.error_array is not None):
+            bincount = self.error_array
+        else:
+            bincount = np.zeros(self.power_array.shape)
+        power = self.power_array
+        out =  np.transpose(np.stack([k, bincount, pwk,power]))
+        np.savetxt(name_out,out)
+
 
 
 class FluxPowerSpectrum(PowerSpectrum):
@@ -409,7 +506,15 @@ class FluxPowerSpectrum(PowerSpectrum):
 
 
     @classmethod
-    def init_from_gimlet(cls,namefile,type_file,kmu=True,power_weighted=False,error_estimator=None,field_name=None,**kwargs):
+    def init_from_gimlet(cls,
+                         namefile,
+                         type_file,
+                         kmu=True,
+                         power_weighted=False,
+                         error_estimator=None,
+                         field_name=None,
+                         error_stored = False,
+                         **kwargs):
         if(type_file == "txt"):
             pk_array = np.loadtxt(namefile)
         elif(type_file == "hdf5"):
@@ -419,13 +524,21 @@ class FluxPowerSpectrum(PowerSpectrum):
         else: (k1_edge, k2_edge, bincount, pwk1, pwk2, power) = cls.init_kperpar(pk_array)
         if (power_weighted) : k1_array , k2_array = pwk1,pwk2
         else : k1_array , k2_array = k1_edge,k2_edge
-        if(error_estimator is not None):
+        if(error_estimator is not None)&(not(error_stored)):
             error = utils.error_estimator(power,model=error_estimator,bin_count=bincount,**kwargs)
+        elif(error_stored):
+            error = bincount
         else: error = None
         k_array = np.stack([k1_array, k2_array])
         dimension = "3D"
         h_normalized  = True
-        return(cls(dimension,k_array=k_array,power_array=power,error_array=error,file_init=namefile,size_box=None,h_normalized=h_normalized))
+        return(cls(dimension,
+                   k_array=k_array,
+                   power_array=power,
+                   error_array=error,
+                   file_init=namefile,
+                   size_box=None,
+                   h_normalized=h_normalized))
 
 
     @classmethod
@@ -456,6 +569,24 @@ class FluxPowerSpectrum(PowerSpectrum):
 
 
 
+    def write_to_gimlet(self,name_out,power_weighted=False):
+        if(power_weighted):
+            pwk1  = self.k_array[0]
+            pwk2  = self.k_array[1]
+            k1_edge = np.zeros(self.k_array[0].shape)
+            k2_edge = np.zeros(self.k_array[1].shape)
+        else:
+            pwk1  = np.zeros(self.k_array[0].shape)
+            pwk2  = np.zeros(self.k_array[1].shape)
+            k1_edge = self.k_array[0]
+            k2_edge = self.k_array[1]
+        if(self.error_array is not None):
+            bincount = self.error_array
+        else:
+            bincount = np.zeros(self.power_array.shape)
+        power = self.power_array
+        out =  np.transpose(np.stack([k1_edge, k2_edge, bincount, pwk1, pwk2, power]))
+        np.savetxt(name_out,out)
 
 
 
@@ -527,6 +658,82 @@ def compute_k_extremums(power_Ll,power_Sl,power_Ss,size_small,size_large,N_small
         k_max.append(np.max(power_Ll.k_array[0][mask_k_Ll][mask_k_select]))
 
     return(k_max)
+
+
+def compute_k_extremums_1D(power_Ll,power_Sl,power_Ss):
+
+
+    min_k = np.min(power_Ss.k_array)
+    max_k = np.max(power_Ss.k_array)
+
+    mask_k_Ll = (power_Ll.k_array >=min_k) & (power_Ll.k_array <= max_k)
+
+
+    power_Sl_interp = interp1d(power_Sl.k_array,power_Sl.power_array)
+    mask_k_select = np.abs((power_Ll.power_array[mask_k_Ll]-power_Sl_interp(power_Ll.k_array[mask_k_Ll]))/power_Ll.power_array[mask_k_Ll]) < 0.01
+
+    k_max = np.max(power_Ll.k_array[mask_k_Ll][mask_k_select])
+
+    return(k_max)
+
+
+def splice_1D(power_Ll,power_Sl,power_Ss,size_small,size_large,N_small,N_large,use_nyquist=False):
+    """ L,S = Large or Small size
+        l,s = large or small number of particles/resolution elements
+        splice the Ll box, using resolved Sl box and splicing Ss box """
+    kmin_S = 2*np.pi / size_small
+    if(use_nyquist):
+        knyq_L = N_large*np.pi / size_large
+        k_max = knyq_L/4
+    else:
+        k_max = compute_k_extremums_1D(power_Ll,power_Sl,power_Ss)
+    power = []
+    k_array = []
+    error = None
+    if((power_Ll.error_array is not None)&(power_Sl.error_array is not None)):
+        error = []
+    power_Ll_interp = interp1d(power_Ll.k_array,power_Ll.power_array)
+    power_Ss_interp = interp1d(power_Ss.k_array,power_Ss.power_array)
+    power_Sl_interp = interp1d(power_Sl.k_array,power_Sl.power_array)
+
+    ## low k:  k <= kminS
+    mask_k_Ll = power_Ll.k_array <= kmin_S
+    power.append(power_Ll.power_array[mask_k_Ll] * (power_Sl_interp(kmin_S)/power_Ss_interp(kmin_S)))
+    k_array.append(power_Ll.k_array[mask_k_Ll])
+    if(error is not None):
+        error.append(power_Ll.error_array[mask_k_Ll])
+
+    ## mid k:  kminS < k <= kNyqL / 4
+    mask_k_Ll = (power_Ll.k_array > kmin_S) &  (power_Ll.k_array <= k_max)
+    k = power_Ll.k_array[mask_k_Ll]
+    power.append(power_Ll.power_array[mask_k_Ll] * (power_Sl_interp(k)/power_Ss_interp(k)))
+    k_array.append(k)
+    if(error is not None):
+        error.append(power_Ll.error_array[mask_k_Ll])
+
+    ## large k:  k > kNyqL / 4
+    mask_k_Sl = power_Sl.k_array > k_max
+    power.append(power_Sl.power_array[mask_k_Sl] * (power_Ll_interp(k_max)/power_Ss_interp(k_max)))
+    k_array.append(power_Sl.k_array[mask_k_Sl])
+    if(error is not None):
+        error.append(power_Sl.error_array[mask_k_Sl])
+        error = np.concatenate(error,axis=0)
+    power = np.concatenate(power,axis=0)
+    k_array = np.concatenate(k_array,axis=0)
+
+
+
+    power_spectrum = MatterPowerSpectrum("1D",
+                                         "matter",
+                                         k_array=k_array,
+                                         power_array=power,
+                                         error_array=error,
+                                         h_normalized=True)
+    return(power_spectrum)
+
+
+
+
 
 
 def splice_3D(power_Ll,power_Sl,power_Ss,size_small,size_large,N_small,N_large,use_nyquist=False):
