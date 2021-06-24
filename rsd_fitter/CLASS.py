@@ -7,6 +7,7 @@ Created on Fri Jul 12 14:12:40 2019
 """
 import numpy as np
 from scipy.interpolate import interp1d
+from cosmoprimo import Cosmology,Fourier,PowerSpectrumBAOFilter
 
 
 
@@ -218,3 +219,24 @@ class MyClass(object):
 
     def close_class(self):
         self.model.empty()
+
+
+
+class CosmoprimoInterface():
+    def __init__(self,pwd,settings):
+        self.pwd = pwd
+        self.settings = settings
+
+    def Pl_class_cosmoprimo(self,k_array,z):
+        cosmo = Cosmology(engine='class',**self.settings)
+        fo = Fourier(cosmo,engine='class')
+        pk = fo.pk_interpolator()
+        return(pk(k_array,z=z))
+
+
+    def Pl_class_cosmoprimo_no_wiggle(self,k_array,z):
+        cosmo = Cosmology(engine='class',**self.settings)
+        fo = Fourier(cosmo,engine='class')
+        pk = fo.pk_interpolator()
+        pknow = PowerSpectrumBAOFilter(pk,engine='wallish2018').smooth_pk_interpolator()
+        return(pknow(k_array,z=z))
