@@ -301,13 +301,16 @@ class PowerSpectrum(object):
                                            marker = utils.return_key(kwargs,"ps",None),
                                            linestyle= ls,
                                            color=c)
+                    ax_comparison.plot([np.min(comparison.k_array[0][mask_comparison]),np.max(comparison.k_array[0][mask_comparison])],
+                                       [0,0],"k-",alpha=0.5)
                 else:
                     ax_comparison.plot(comparison.k_array[0][mask_comparison],
                                        (comparison.power_array[mask_comparison] - power_array_comparison)/comparison.power_array[mask_comparison],
                                        marker = utils.return_key(kwargs,"ps",None),
                                        linestyle= ls,
                                        color=c)
-
+                    ax_comparison.plot([np.min(comparison.k_array[0][mask_comparison]),np.max(comparison.k_array[0][mask_comparison])],
+                                       [0,0],"k-",alpha=0.5)
             if(self.error_array is not None):
                 ax_to_plot.errorbar(self.k_array[0][mask],
                                     self.power_array[mask]*factor_multiplication,
