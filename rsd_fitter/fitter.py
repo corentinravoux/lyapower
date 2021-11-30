@@ -367,7 +367,7 @@ def plot_fit(minuit,power_f,power_l,model,mu_bin,legend,name_out="fit_results"):
     power1.plot_2d_pk(mu_bin,color=color)
 
     power2.save_plot(f"{name_out}.pdf")
-    power2.show_plot()
+    # power2.show_plot()
     power2.close_plot()
     minuit_to_latex(minuit,name=name_out)
 
