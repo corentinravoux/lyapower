@@ -105,22 +105,28 @@ class MyClass(object):
                     dict_deriv[key].append(par[key])
         return(Power,Transfer,sigma_8,dict_deriv)
 
-    def write_pk_tk_neutrino_mass(self,z,name,kmin=-4,kmax= 3,nb_points=2000,nb_neutrinos=3,neutrino_mass = None,method = "cbnu"):
+    def write_pk_tk_neutrino_mass(self,z,name,kmin=-4,kmax= 3,nb_points=2000,nb_neutrinos=3,nb_neutrinos_massif=1,neutrino_mass = None,method = "cbnu"):
         """ return Power Spectra with k in h.Mpc-1 and P in h3.Mpc-3 in the convention of CAMB and CLASS (the one needed for MP-Gadget).
             return Transfer function in the convention of CLASS (needed for MP-Genic) or CAMB (needed for 2LPT) !!!
         """
         m_ncdm = ""
+        Omega_ncdm = ""
         for j in range(nb_neutrinos):
             m_ncdm =m_ncdm + "0.0,"
+            Omega_ncdm =Omega_ncdm + "0.0,"
         m_ncdm = m_ncdm[0:-1]
-        self.model.set({'N_ncdm' : nb_neutrinos,'m_ncdm' : m_ncdm})
+        Omega_ncdm = Omega_ncdm[0:-1]
+        self.model.set({'N_ncdm' : nb_neutrinos,'m_ncdm' : m_ncdm,'Omega_ncdm' :Omega_ncdm})
         self.model.compute()
         if (neutrino_mass is not None):
             omega_cdm_ref = self.model.Omega0_cdm()
             omega_nu_ref = self.model.Omega_nu
             m_ncdm = ""
-            for j in range(nb_neutrinos):
-                m_ncdm =m_ncdm +  str(neutrino_mass/nb_neutrinos) + ","
+            for j in range(nb_neutrinos_massif):
+                m_ncdm =m_ncdm +  str(neutrino_mass/nb_neutrinos_massif) + ","
+            for j in range(nb_neutrinos - nb_neutrinos_massif):
+                m_ncdm =m_ncdm + "0.0,"
+            print(m_ncdm)
             m_ncdm = m_ncdm[0:-1]
             if(method == "cbnu"):
                 self.model.set({'N_ncdm' : nb_neutrinos,'m_ncdm':m_ncdm,'omega_cdm':str((omega_cdm_ref - self.get_omeganu_from_mass(neutrino_mass) + omega_nu_ref)*self.model.h()**2)})
@@ -220,7 +226,11 @@ class MyClass(object):
     def close_class(self):
         self.model.empty()
 
+    def get_omeganu_from_mass(self,mass):
+        return(mass/(93.14*(self.model.h())**2))
 
+    def get_mass_from_omeganu(self,omeganu):
+        return(omeganu*(93.14)*(self.model.h())**2)
 
 class CosmoprimoInterface():
     def __init__(self,pwd,settings):
