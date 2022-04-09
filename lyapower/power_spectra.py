@@ -172,14 +172,14 @@ class PowerSpectrum(object):
         ylab,xlab = "",""
         if(yunit):
             if(self.h_normalized):
-                ylab = r" [$\rm{h}^{-3}.\rm{Mpc}^3$]"
+                ylab = r" [$h^{-3}$" +r"$\cdot$" + "$\mathrm{Mpc}^3$]"
             else:
-                ylab = r" [$\rm{Mpc}^3$]"
+                ylab = r" [$\mathrm{Mpc}^3$]"
         if(xunit):
             if(self.h_normalized):
-                xlab = r" [$\rm{h}.\rm{Mpc}^{-1}$]"
+                xlab = r" [$h$" +r"$\cdot$" + "$\mathrm{Mpc}^{-1}$]"
             else:
-                xlab = r" [$\rm{Mpc}^{-1}$]"
+                xlab = r" [$\mathrm{Mpc}^{-1}$]"
         ax.tick_params(axis='y', labelsize=labelsize_y)
         ax.set_ylabel(f"{y_label}{ylab}", fontsize=fontsize)
         ax.tick_params(axis='y', labelsize=labelsize_x)
@@ -203,9 +203,6 @@ class PowerSpectrum(object):
 
 
     def plot_1d_pk(self,**kwargs):
-        style = utils.return_key(kwargs,"style",None)
-        if style is not None:
-            plt.style.use(style)
         comparison = utils.return_key(kwargs,"comparison",None)
         (ax_to_plot,ax_comparison) = self.prepare_axes(kwargs)
         self.put_label(ax_to_plot)
@@ -221,7 +218,6 @@ class PowerSpectrum(object):
             ax_comparison.plot(comparison.k_array,
                                (comparison.power_array - power_array_comparison)/comparison.power_array,
                                color=color)
-        ax_to_plot.set_title("Power spectrum")
         ax_to_plot.plot(self.k_array,
                         self.power_array,
                         marker = utils.return_key(kwargs,"ps",None),
@@ -260,9 +256,6 @@ class PowerSpectrum(object):
 
 
     def plot_2d_pk(self,bin_edges,**kwargs):
-        style = utils.return_key(kwargs,"style",None)
-        if style is not None:
-            plt.style.use(style)
         comparison = utils.return_key(kwargs,"comparison",None)
         k_multiplication = utils.return_key(kwargs,"k_multiplication",False)
         (ax_to_plot,ax_comparison) = self.prepare_axes(kwargs)
@@ -356,8 +349,9 @@ class PowerSpectrum(object):
 
 
 
-        ax_to_plot.legend(utils.return_key(kwargs,"legend",[]),handles=utils.return_key(kwargs,"legend_elements",None))
-        ax_to_plot.set_title(utils.return_key(kwargs,"title","Power spectrum"))
+        ax_to_plot.legend(utils.return_key(kwargs,"legend",[]),
+                          handles=utils.return_key(kwargs,"legend_elements",None),
+                          fontsize=utils.return_key(kwargs,"fontsize",12))
         plt.gcf().tight_layout()
 
     def plot_several_power_spectrum(self,Pks,k_space,name,legend):
@@ -421,8 +415,12 @@ class PowerSpectrum(object):
             fig = plt.gcf()
         plt.close()
 
-    def open_plot(self):
-        fig = plt.figure()
+    def open_plot(self,**kwargs):
+        style = utils.return_key(kwargs,"style",None)
+        if style is not None:
+            plt.style.use(style)
+        figsize = utils.return_key(kwargs,"figsize",(8,6))
+        fig = plt.figure(figsize=figsize)
         return(fig)
 
     def open_subplot(self,x=2, y=1,figsize=(8,6)):
