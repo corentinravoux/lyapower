@@ -1,5 +1,5 @@
 import glob,os
-from rsd_fitter import fitter, CLASS
+from lyapower import fitter, CLASS
 
 ### Grids
 

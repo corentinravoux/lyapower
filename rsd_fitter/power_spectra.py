@@ -11,7 +11,7 @@ import numpy as np
 from scipy.interpolate import interp1d
 import math
 from matplotlib.pyplot import cm
-from rsd_fitter import utils_fitter as utils
+from lyapower import utils_fitter as utils
 import h5py
 
 

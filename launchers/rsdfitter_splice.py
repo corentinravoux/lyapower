@@ -1,6 +1,6 @@
-from rsd_fitter import fitter
+from lyapower import fitter
 import glob,os
-from rsd_fitter import power_spectra
+from lyapower import power_spectra
 
 ### Grids
 

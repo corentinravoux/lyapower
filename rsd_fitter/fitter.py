@@ -2,9 +2,9 @@ import numpy as np
 import os
 from iminuit import Minuit
 import scipy.interpolate
-from rsd_fitter import power_spectra
-from rsd_fitter import CLASS
-from rsd_fitter import utils_fitter
+from lyapower import power_spectra
+from lyapower import CLASS
+from lyapower import utils_fitter
 
 
 def read_pfkmu_hdf5(filename,field_name,power_weighted=False,error_estimator=None,**kwargs):

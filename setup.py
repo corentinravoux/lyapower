@@ -13,16 +13,16 @@ from shutil import rmtree
 from setuptools import find_packages, setup, Command
 
 # Package meta-data.
-NAME = 'rsd_fitter'
+NAME = 'lyapower'
 DESCRIPTION = 'Package for 3d Lyman-alpha power spectrum fitting'
-URL = 'https://github.com/corentinravoux/rsd_fitter'
+URL = 'https://github.com/corentinravoux/lyapower'
 EMAIL = 'corentin.ravoux01@hotmail.fr'
 AUTHOR = 'Corentin Ravoux'
 REQUIRES_PYTHON = '>=3.6.0'
 VERSION = '1.0'
 
 scripts = glob.glob('scripts/*')
-packages = ['rsd_fitter']
+packages = ['lyapower']
 
 # What packages are required for this module to be executed?
 REQUIRED = [
@@ -117,7 +117,7 @@ setup(
     #},
     install_requires=REQUIRED,
     extras_require=EXTRAS,
-    package_data= {},#{'rsd_fitter.exec':},
+    package_data= {},#{'lyapower.exec':},
     include_package_data=True,
     license='MIT',
     classifiers=[

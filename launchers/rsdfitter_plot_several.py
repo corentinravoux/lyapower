@@ -1,4 +1,4 @@
-from rsd_fitter import fitter
+from lyapower import fitter
 from matplotlib.lines import Line2D
 import glob,os
 
