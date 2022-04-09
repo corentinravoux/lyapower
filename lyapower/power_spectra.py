@@ -250,6 +250,7 @@ class PowerSpectrum(object):
 
             ax_comparison.set_xlim(left=x_min_lim_comparison,right=x_max_lim_comparison)
             ax_comparison.set_ylim(bottom=y_min_lim_comparison,top=y_max_lim_comparison)
+        plt.gcf().tight_layout()
 
 
 
@@ -351,7 +352,7 @@ class PowerSpectrum(object):
 
         ax_to_plot.legend(utils.return_key(kwargs,"legend",[]),handles=utils.return_key(kwargs,"legend_elements",None))
         ax_to_plot.set_title(utils.return_key(kwargs,"title","Power spectrum"))
-
+        plt.gcf().tight_layout()
 
     def plot_several_power_spectrum(self,Pks,k_space,name,legend):
         plt.figure()
