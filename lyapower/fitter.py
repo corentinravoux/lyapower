@@ -328,7 +328,7 @@ def plot_pf_pm(power_f,power_m,mu_bin,legend):
     power_f.plot_2d_pk(mu_bin,legend=legend,ps="x")
 
 
-def plot_fit(minuit,power_f,power_l,model,mu_bin,legend,name_out="fit_results"):
+def plot_fit(minuit,power_f,power_l,model,mu_bin,legend,name_out="fit_results",**kwargs):
     minuit_params = []
     for i in range(len(minuit.parameters)):
         minuit_params.append(minuit.values.values()[i])
@@ -345,7 +345,7 @@ def plot_fit(minuit,power_f,power_l,model,mu_bin,legend,name_out="fit_results"):
                                              power_array= pf_over_pm_model,
                                              dimension="3D",
                                              h_normalized=h_normalized)
-    power1.open_plot()
+    power1.open_plot(**kwargs)
 
 
 
@@ -356,19 +356,19 @@ def plot_fit(minuit,power_f,power_l,model,mu_bin,legend,name_out="fit_results"):
                                              dimension="3D",
                                              h_normalized=h_normalized)
     power2.plot_2d_pk(mu_bin,
-                      legend=legend,
+                      color=color,
                       ps="x",
                       linestyle=["None" for i in range(len(mu_bin))],
+                      **kwargs)
+
+    power1.plot_2d_pk(mu_bin,
                       color=color,
-                      y_label=r"$P_f/P_l$",
-                      y_unit=False)
+                      legend=legend,
+                      **kwargs)
 
 
-    power1.plot_2d_pk(mu_bin,color=color)
-
-    power2.save_plot(f"{name_out}.pdf")
-    # power2.show_plot()
-    power2.close_plot()
+    power1.save_plot(f"{name_out}.pdf")
+    power1.close_plot()
     minuit_to_latex(minuit,name=name_out)
 
 

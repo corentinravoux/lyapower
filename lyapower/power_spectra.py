@@ -168,21 +168,21 @@ class PowerSpectrum(object):
         if(self.error_array is not None):self.error_array = self.error_array[mask]
 
 
-    def put_label(self,ax,xunit=True,yunit=True,y_label ="P",x_label="k",labelsize_x=12,labelsize_y=12,fontsize=12):
+    def put_label(self,ax,xunit=True,yunit=True,y_label =r"$P$",x_label=r"$k$",labelsize_x=12,labelsize_y=12,fontsize=12):
         ylab,xlab = "",""
         if(yunit):
             if(self.h_normalized):
-                ylab = r" [$h^{-3}$" +r"$\cdot$" + "$\mathrm{Mpc}^3$]"
+                ylab = r" $[h^{-3}$" +r"$\cdot$" + "$\mathrm{Mpc}^3]$"
             else:
-                ylab = r" [$\mathrm{Mpc}^3$]"
+                ylab = r" $[\mathrm{Mpc}^3$]"
         if(xunit):
             if(self.h_normalized):
-                xlab = r" [$h$" +r"$\cdot$" + "$\mathrm{Mpc}^{-1}$]"
+                xlab = r" $[h$" +r"$\cdot$" + "$\mathrm{Mpc}^{-1}]$"
             else:
-                xlab = r" [$\mathrm{Mpc}^{-1}$]"
+                xlab = r" $[\mathrm{Mpc}^{-1}]$"
         ax.tick_params(axis='y', labelsize=labelsize_y)
         ax.set_ylabel(f"{y_label}{ylab}", fontsize=fontsize)
-        ax.tick_params(axis='y', labelsize=labelsize_x)
+        ax.tick_params(axis='x', labelsize=labelsize_x)
         ax.set_xlabel(f"{x_label}{xlab}", fontsize=fontsize)
 
 
@@ -262,8 +262,8 @@ class PowerSpectrum(object):
         self.put_label(ax_to_plot,
                        xunit = utils.return_key(kwargs,"x_unit",True),
                        yunit = utils.return_key(kwargs,"y_unit",True),
-                       x_label = utils.return_key(kwargs,"x_label","k"),
-                       y_label = utils.return_key(kwargs,"y_label","P"),
+                       x_label = utils.return_key(kwargs,"x_label",r"$k$"),
+                       y_label = utils.return_key(kwargs,"y_label",r"$P$"),
                        labelsize_x = utils.return_key(kwargs,"labelsize_x",12),
                        labelsize_y = utils.return_key(kwargs,"labelsize_y",12),
                        fontsize = utils.return_key(kwargs,"fontsize",12))
@@ -271,8 +271,8 @@ class PowerSpectrum(object):
             self.put_label(ax_comparison,
                            xunit = utils.return_key(kwargs,"x_unit_comparison",True),
                            yunit = utils.return_key(kwargs,"y_unit_comparison",True),
-                           x_label = utils.return_key(kwargs,"x_label_comparison","k"),
-                           y_label = utils.return_key(kwargs,"y_label_comparison","Pk"),
+                           x_label = utils.return_key(kwargs,"x_label_comparison",r"$k$"),
+                           y_label = utils.return_key(kwargs,"y_label_comparison",r"$P$"),
                            labelsize_x = utils.return_key(kwargs,"labelsize_x_comparison",12),
                            labelsize_y = utils.return_key(kwargs,"labelsize_y_comparison",12),
                            fontsize = utils.return_key(kwargs,"fontsize_comparison",12))
@@ -513,6 +513,7 @@ class FluxPowerSpectrum(PowerSpectrum):
         self.dimension = dimension
 
 
+
     @classmethod
     def init_from_gimlet(cls,
                          namefile,
@@ -528,8 +529,8 @@ class FluxPowerSpectrum(PowerSpectrum):
         elif(type_file == "hdf5"):
             file = h5py.File(namefile,"r")[field_name]
             pk_array = np.array(list(zip(*file))).transpose()
-        if(kmu): (k1_edge, k2_edge, bincount, pwk1, pwk2, power) = cls.init_kmu(pk_array)
-        else: (k1_edge, k2_edge, bincount, pwk1, pwk2, power) = cls.init_kperpar(pk_array)
+        if(kmu): (k1_edge, k2_edge, bincount, pwk1, pwk2, power) = FluxPowerSpectrum.init_kmu(pk_array)
+        else: (k1_edge, k2_edge, bincount, pwk1, pwk2, power) = FluxPowerSpectrum.init_kperpar(pk_array)
         if (power_weighted) : k1_array , k2_array = pwk1,pwk2
         else : k1_array , k2_array = k1_edge,k2_edge
         if(error_estimator is not None)&(not(error_stored)):
@@ -549,7 +550,7 @@ class FluxPowerSpectrum(PowerSpectrum):
                    h_normalized=h_normalized))
 
 
-    @classmethod
+    @staticmethod
     def init_kmu(cls,pk_array):
         """ Pf(k,mu) gimlet file contains
          - k_edge: edge (higher) of the k bin considered
@@ -563,7 +564,7 @@ class FluxPowerSpectrum(PowerSpectrum):
 
 
 
-    @classmethod
+    @staticmethod
     def init_kperpar(cls,pk_array):
         """ Pf(kperp,kpar) gimlet file contains
          - k_perp: edge (higher) of the k perp bin considered
@@ -575,6 +576,41 @@ class FluxPowerSpectrum(PowerSpectrum):
         k_perp, k_par, bincount, pwkperp, pwkpar,power = pk_array[:,0],pk_array[:,1],pk_array[:,2],pk_array[:,3],pk_array[:,4],pk_array[:,5]
         return(k_perp, k_par, bincount, pwkperp, pwkpar,power)
 
+
+
+    @staticmethod
+    def compute_mean_gimlet(namefile,
+                            namemean,
+                            type_file,
+                            kmu=True,
+                            field_name=None):
+        if(type_file == "txt"):
+            pk_array = np.loadtxt(namefile[0])
+        elif(type_file == "hdf5"):
+            file = h5py.File(namefile[0],"r")[field_name]
+            pk_array = np.array(list(zip(*file))).transpose()
+
+        if(kmu): k1_edge_mean, k2_edge_mean, bincount_mean, pwk1_mean, pwk2_mean,power_mean = FluxPowerSpectrum.init_kmu(pk_array)
+        else: k1_edge_mean, k2_edge_mean, bincount_mean, pwk1_mean, pwk2_mean,power_mean = FluxPowerSpectrum.init_kperpar(pk_array)
+        for j in range(1,len(namefile)):
+            if(type_file == "txt"):
+                pk_array = np.loadtxt(namefile[j])
+            elif(type_file == "hdf5"):
+                file = h5py.File(namefile[j],"r")[field_name]
+                pk_array = np.array(list(zip(*file))).transpose()
+            if(kmu): indiv_value = FluxPowerSpectrum.init_kmu(pk_array)
+            else: indiv_value = FluxPowerSpectrum.init_kperpar(pk_array)
+
+            bincount, pwk1, pwk2,power = indiv_value[2],indiv_value[3],indiv_value[4],indiv_value[5]
+            bincount_mean = bincount_mean + bincount
+            pwk1_mean = pwk1_mean + pwk1
+            pwk2_mean = pwk2_mean + pwk2
+            power_mean = power_mean + power
+        pwk1_mean = pwk1_mean / len(namefile)
+        pwk2_mean = pwk2_mean / len(namefile)
+        power_mean = power_mean / len(namefile)
+        out =  np.transpose(np.stack([k1_edge_mean, k2_edge_mean, bincount_mean, pwk1_mean, pwk2_mean,power_mean]))
+        np.savetxt(namemean,out)
 
 
     def write_to_gimlet(self,name_out,power_weighted=False):
