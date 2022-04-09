@@ -203,6 +203,9 @@ class PowerSpectrum(object):
 
 
     def plot_1d_pk(self,**kwargs):
+        style = utils.return_key(kwargs,"style",None)
+        if style is not None:
+            plt.style.use(style)
         comparison = utils.return_key(kwargs,"comparison",None)
         (ax_to_plot,ax_comparison) = self.prepare_axes(kwargs)
         self.put_label(ax_to_plot)
@@ -257,6 +260,9 @@ class PowerSpectrum(object):
 
 
     def plot_2d_pk(self,bin_edges,**kwargs):
+        style = utils.return_key(kwargs,"style",None)
+        if style is not None:
+            plt.style.use(style)
         comparison = utils.return_key(kwargs,"comparison",None)
         k_multiplication = utils.return_key(kwargs,"k_multiplication",False)
         (ax_to_plot,ax_comparison) = self.prepare_axes(kwargs)
