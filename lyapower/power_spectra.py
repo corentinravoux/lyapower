@@ -551,7 +551,7 @@ class FluxPowerSpectrum(PowerSpectrum):
 
 
     @staticmethod
-    def init_kmu(cls,pk_array):
+    def init_kmu(pk_array):
         """ Pf(k,mu) gimlet file contains
          - k_edge: edge (higher) of the k bin considered
          - mu_edge: edge (lower) of the mu bin considered (mu positive)
@@ -565,7 +565,7 @@ class FluxPowerSpectrum(PowerSpectrum):
 
 
     @staticmethod
-    def init_kperpar(cls,pk_array):
+    def init_kperpar(pk_array):
         """ Pf(kperp,kpar) gimlet file contains
          - k_perp: edge (higher) of the k perp bin considered
          - k_par: edge (higher) of the k par bin considered
