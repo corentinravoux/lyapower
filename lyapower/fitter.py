@@ -175,11 +175,25 @@ def cost_function(model,data_x,data_y,data_yerr,cost_name,non_linear_model="0"):
 ### Minuit stuff
 
 
-def run_minuit(data_x,data_y,data_yerr,minuit_parameters,sigma,linear_power_spectrum,non_linear_model="0",cost_name="least",ncall=100,var_minos=None,fix_args=None):
+def run_minuit(data_x,
+               data_y,
+               data_yerr,
+               minuit_parameters,
+               minuit_limits,
+               sigma,
+               linear_power_spectrum,
+               non_linear_model="0",
+               cost_name="least",
+               ncall=100,
+               var_minos=None,
+               fix_args=None):
     model = Pf_model(linear_power_spectrum,non_linear_model=non_linear_model)
     cost = cost_function(model,data_x,data_y,data_yerr,cost_name,non_linear_model=non_linear_model)
-    minuit_parameters.update({"errordef":1, "pedantic":False, "print_level": 0})
     minuit = Minuit(cost,**minuit_parameters)
+    minuit.errordef = 1
+    if minuit_limits is not None :
+        for i in range(len(minuit_limits)):
+            minuit.limits[minuit_limits[i][0]] = minuit_limits[i][1]
     if(fix_args is not None):
         for i in range(len(fix_args)):
             minuit.fixed[fix_args[i]] = True
@@ -189,7 +203,7 @@ def run_minuit(data_x,data_y,data_yerr,minuit_parameters,sigma,linear_power_spec
     return(minuit,model)
 
 def run_migrad(minuit,ncall=1000):
-    return(minuit.migrad(ncall,resume=True))
+    return(minuit.migrad(ncall))
 
 def run_minos(minuit,sigma,ncall=1000,var_minos=None):
     return(minuit.minos(var=var_minos,sigma=sigma,ncall=ncall))
@@ -245,6 +259,7 @@ def prepare_data(pf_file,
 def fitter_k_mu(pf_file,
                 pk_file,
                 minuit_parameters,
+                minuit_limits,
                 sigma,
                 power_weighted=False,
                 class_dict=None,
@@ -263,21 +278,22 @@ def fitter_k_mu(pf_file,
     (power_f,power_l,
      power_l_rebin,
      data_x,data_y,
-     data_yerr)=prepare_data(pf_file,
-                             pk_file,
-                             power_weighted=power_weighted,
-                             class_dict=class_dict,
-                             z_simu=z_simu,
-                             z_init=z_init,
-                             kmax=kmax,
-                             kmin=kmin,
-                             name_pm_file=name_pm_file,
-                             error_estimator=error_estimator,
-                             **kwargs)
+     data_yerr) = prepare_data(pf_file,
+                               pk_file,
+                               power_weighted=power_weighted,
+                               class_dict=class_dict,
+                               z_simu=z_simu,
+                               z_init=z_init,
+                               kmax=kmax,
+                               kmin=kmin,
+                               name_pm_file=name_pm_file,
+                               error_estimator=error_estimator,
+                               **kwargs)
     minuit,model = run_minuit(data_x,
                               data_y,
                               data_yerr,
                               minuit_parameters,
+                              minuit_limits,
                               sigma,
                               power_l_rebin,
                               non_linear_model=non_linear_model,
@@ -331,7 +347,7 @@ def plot_pf_pm(power_f,power_m,mu_bin,legend):
 def plot_fit(minuit,power_f,power_l,model,mu_bin,legend,name_out="fit_results",**kwargs):
     minuit_params = []
     for i in range(len(minuit.parameters)):
-        minuit_params.append(minuit.values.values()[i])
+        minuit_params.append(minuit.params[minuit.parameters[i]].value)
     power_l_rebin = rebin_matter_power(power_l.power_array,power_l.k_array,power_f.k_array[0])
     pf_over_pm_data = power_f.power_array / power_l_rebin
     if(power_f.error_array is not None): error_array = power_f.error_array / power_l_rebin
@@ -369,7 +385,6 @@ def plot_fit(minuit,power_f,power_l,model,mu_bin,legend,name_out="fit_results",*
 
     power1.save_plot(f"{name_out}.pdf")
     power1.close_plot()
-    minuit_to_latex(minuit,name=name_out)
 
 
 
@@ -377,6 +392,7 @@ def plot_fit(minuit,power_f,power_l,model,mu_bin,legend,name_out="fit_results",*
 
 
 def minuit_to_latex(minuit,name=""):
+    """ obsolete """
     try:
         file = open(f"{name}_minuit_matrix.tex",'w')
         file.write(minuit.latex_matrix().__str__())
