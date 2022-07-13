@@ -860,3 +860,41 @@ def splice_3D(power_Ll,power_Sl,power_Ss,size_small,size_large,N_small,N_large,u
                                        size_box=None,
                                        h_normalized=True)
     return(power_spectrum)
+
+
+
+def verif_slicing(power_verif,
+                  power_spliced,
+                  mu_bins,
+                  name_out,
+                  style=None):
+
+
+    if style is not None:
+        plt.style.use(style)
+    plt.figure(figsize=(9,6))
+    size=17
+    size_ticks=14
+    for i in range(len(mu_bins)):
+        mu = mu_bins[i]
+        mask = power_verif.k_array[1] == mu
+        mask_comparison = power_spliced.k_array[1] == mu
+        power_array_comparison = interp1d(power_spliced.k_array[0][mask_comparison],
+                                          power_spliced.power_array[mask_comparison],
+                                          bounds_error=False,
+                                          fill_value=np.NaN)(power_verif.k_array[0][mask])
+
+        delta_P = (power_verif.power_array[mask] - power_array_comparison)/power_verif.power_array[mask]
+        plt.semilogx(power_verif.k_array[0][mask],delta_P)
+    plt.xlabel(r"$k$" + r" $[h$" +r"$\cdot$" + r"$\mathrm{Mpc}^{-1}]$",fontsize=size)
+    plt.ylabel(r"$\left[P_{\alpha}(\mathrm{true}) - P_{\alpha}(\mathrm{splice})\right] / P_{\alpha}(\mathrm{true})}$",fontsize=size)
+    plt.fill_between(power_verif.k_array[0][mask],-0.05,0.05,alpha=0.1,color="k")
+    plt.gca().margins(x=0)
+    plt.gca().tick_params(axis='x', labelsize=size_ticks)
+    plt.gca().tick_params(axis='y', labelsize=size_ticks)
+    plt.ylim([-0.15,0.15])
+    plt.plot([8,8],[-0.15,0.15],"k-")
+    legend = [r"0.0 < $|\mu|$ < 0.25",r"0.25 < $|\mu|$ < 0.5",r"0.5 < $|\mu|$ < 0.75",r"0.75 < $|\mu|$ < 1.0"]
+    plt.legend(legend,fontsize=size)
+    plt.tight_layout()
+    power_spliced.save_plot(name_out)
