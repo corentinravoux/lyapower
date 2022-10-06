@@ -1,5 +1,5 @@
 import numpy as np
-import os
+import os, pickle
 from iminuit import Minuit
 import scipy.interpolate
 from lyapower import power_spectra
@@ -385,6 +385,10 @@ def plot_fit(minuit,power_f,power_l,model,mu_bin,legend,name_out="fit_results",*
 
     power1.save_plot(f"{name_out}.pdf")
     power1.close_plot()
+
+
+    with open(f"{name_out}_param.txt", 'w') as f:
+        print(minuit.params, file=f)
 
 
 
