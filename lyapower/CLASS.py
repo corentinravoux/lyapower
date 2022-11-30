@@ -58,7 +58,6 @@ class MyClass(object):
         self.define_output_format()
 
         self.hierarchy = hierarchy
-        self.class_exe_path = "/local/home/cravoux/Software/class/class_public/class"
 
 
 
