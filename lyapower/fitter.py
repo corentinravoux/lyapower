@@ -271,7 +271,7 @@ def run_minuit(
     print(run_migrad(minuit, ncall=ncall))
     run_hesse(minuit)
     # run_minos(minuit,sigma,ncall=ncall,var_minos=var_minos)
-    return (minuit, model)
+    return (minuit, linear_power_spectrum, non_linear_model)
 
 
 def run_migrad(minuit, ncall=1000):
@@ -310,7 +310,6 @@ def prepare_data(
     )
     power_f.cut_extremum(kmin, kmax)
     rebin = utils_fitter.return_key(kwargs, "rebin", None)
-
     if rebin is not None:
         power_f.rebin_2d_arrays(
             rebin["nb_bin"],
@@ -371,7 +370,7 @@ def fitter_k_mu(
         error_estimator=error_estimator,
         **kwargs,
     )
-    minuit, model = run_minuit(
+    minuit, linear_power_spectrum, non_linear_model = run_minuit(
         data_x,
         data_y,
         data_yerr,
@@ -385,7 +384,7 @@ def fitter_k_mu(
         var_minos=var_minos,
         fix_args=fix_args,
     )
-    return (minuit, power_f, power_l, model)
+    return (minuit, power_f, power_l, linear_power_spectrum, non_linear_model)
 
 
 def compute_kna(minuit, power_l, eps, nloopmax=1000):
@@ -435,8 +434,18 @@ def plot_pf_pm(power_f, power_m, mu_bin, legend):
 
 
 def plot_fit(
-    minuit, power_f, power_l, model, mu_bin, legend, name_out="fit_results", **kwargs
+    minuit,
+    power_f,
+    power_l,
+    linear_power_spectrum,
+    non_linear_model,
+    mu_bin,
+    legend,
+    name_out="fit_results",
+    **kwargs,
 ):
+    model = Pf_model(linear_power_spectrum, non_linear_model=non_linear_model)
+
     minuit_params = []
     for i in range(len(minuit.parameters)):
         minuit_params.append(minuit.params[minuit.parameters[i]].value)
