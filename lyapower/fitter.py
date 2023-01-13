@@ -480,6 +480,7 @@ def plot_fit(
     power1.plot_2d_pk(mu_bin, color=color, legend=legend, **kwargs)
 
     power1.save_plot(f"{name_out}.pdf")
+    power1.save_plot(f"{name_out}.png", format_out="png")
     power1.close_plot()
 
     with open(f"{name_out}_param.txt", "w") as f:

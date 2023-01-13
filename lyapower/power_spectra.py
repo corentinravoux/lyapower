@@ -330,7 +330,7 @@ class PowerSpectrum(object):
             )
 
         for i in range(len(bin_edges)):
-            mask = self.k_array[1] == bin_edges[i]
+            mask = (self.k_array[1] == bin_edges[i]) & (self.power_array != 0.0)
             c = kwargs["color"][i] if "color" in kwargs.keys() else None
             ls = utils.return_key(
                 kwargs, "linestyle", ["-" for i in range(len(bin_edges))]
@@ -343,7 +343,9 @@ class PowerSpectrum(object):
                 error_bar_comparison = utils.return_key(
                     kwargs, "error_bar_comparison", True
                 )
-                mask_comparison = comparison.k_array[1] == bin_edges[i]
+                mask_comparison = (comparison.k_array[1] == bin_edges[i]) & (
+                    comparison.power_array != 0.0
+                )
                 power_array_comparison = interp1d(
                     self.k_array[0][mask],
                     self.power_array[mask],
