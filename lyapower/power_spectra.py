@@ -942,9 +942,7 @@ def launch_comparison_power_spectra_different_ref(
     reference_spectrum.close_plot()
 
 
-def compute_k_extremums(
-    power_Ll, power_Sl, power_Ss, size_small, size_large, N_small, N_large
-):
+def compute_k_extremums(power_Ll, power_Sl, power_Ss):
 
     mu_bins = np.unique(power_Ll.k_array[1])
     k_max = []
@@ -1093,9 +1091,7 @@ def splice_3D(
         knyq_L = N_large * np.pi / size_large
         k_max = knyq_L / 4
     else:
-        k_max_array = compute_k_extremums(
-            power_Ll, power_Sl, power_Ss, size_small, size_large, N_small, N_large
-        )
+        k_max_array = compute_k_extremums(power_Ll, power_Sl, power_Ss)
         k_max = np.min(k_max_array)
     mu_value = []
     power = []
@@ -1122,7 +1118,7 @@ def splice_3D(
             power_Sl.k_array[0][mask_mu_Sl], power_Sl.power_array[mask_mu_Sl]
         )
 
-        ## low k:  k <= kminS
+        ## low k:  k <= kmin_S
         mask_k_Ll = power_Ll.k_array[0][mask_mu_Ll] <= kmin_S
         power_mu.append(
             power_Ll.power_array[mask_mu_Ll][mask_k_Ll]
@@ -1132,7 +1128,7 @@ def splice_3D(
         if error is not None:
             error_mu.append(power_Ll.error_array[mask_mu_Ll][mask_k_Ll])
 
-        ## mid k:  kminS < k <= kNyqL / 4
+        ## mid k:  kmin_S < k <= kNyqL / 4
         mask_k_Ll = (power_Ll.k_array[0][mask_mu_Ll] > kmin_S) & (
             power_Ll.k_array[0][mask_mu_Ll] <= k_max
         )
@@ -1189,7 +1185,7 @@ def splice_3D(
         size_box=None,
         h_normalized=True,
     )
-    return power_spectrum
+    return power_spectrum, k_max, kmin_S
 
 
 def verif_slicing(power_verif, power_spliced, mu_bins, name_out, style=None):
