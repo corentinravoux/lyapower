@@ -147,6 +147,8 @@ def error_estimator(power, model="uncorrelated", **kwargs):
         return error_estimator_constant(power, **kwargs)
     elif model == "computed":
         return error_estimator_computed(power, **kwargs)
+    elif model == "computed_epsilon":
+        return error_estimator_computed_epsilon(power, **kwargs)
     else:
         raise KeyError("model of error estimator not available")
 
@@ -171,3 +173,11 @@ def error_estimator_computed(power, **kwargs):
     if bin_count is None:
         raise KeyError("Need bin_count")
     return bin_count
+
+
+def error_estimator_computed_epsilon(power, **kwargs):
+    bin_count = return_key(kwargs, "bin_count", None)
+    epsilon = return_key(kwargs, "epsilon", None)
+    if bin_count is None:
+        raise KeyError("Need bin_count")
+    return bin_count + epsilon * power
