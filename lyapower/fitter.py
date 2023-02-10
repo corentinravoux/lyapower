@@ -261,7 +261,7 @@ def run_minuit(
     ncall=100,
     fix_args=None,
     launch_minos=False,
-    sigma=None,
+    sigma_minos=None,
     var_minos=None,
 ):
     model = Pf_model(linear_power_spectrum, non_linear_model=non_linear_model)
@@ -279,7 +279,7 @@ def run_minuit(
     print(run_migrad(minuit, ncall=ncall))
     run_hesse(minuit)
     if launch_minos:
-        run_minos(minuit, sigma, ncall=ncall, var_minos=var_minos)
+        run_minos(minuit, sigma_minos, ncall=ncall, var_minos=var_minos)
     return (minuit, linear_power_spectrum, non_linear_model)
 
 
