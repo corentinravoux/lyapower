@@ -1007,7 +1007,6 @@ def splice_1D(
     power_Ss,
     size_small,
     size_large,
-    N_small,
     N_large,
     use_nyquist=False,
 ):
@@ -1079,14 +1078,17 @@ def splice_3D(
     power_Ss,
     size_small,
     size_large,
-    N_small,
     N_large,
     use_nyquist=False,
+    impose_kmin_coeff=None,
 ):
     """L,S = Large or Small size
     l,s = large or small number of particles/resolution elements
     splice the Ll box, using resolved Sl box and splicing Ss box"""
-    kmin_S = 2 * np.pi / size_small
+    if impose_kmin_coeff is None:
+        kmin_S = 2 * np.pi / size_small
+    else:
+        kmin_S = impose_kmin_coeff * 2 * np.pi / size_small
     if use_nyquist:
         knyq_L = N_large * np.pi / size_large
         k_max = knyq_L / 4
