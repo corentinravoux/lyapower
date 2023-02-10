@@ -99,7 +99,7 @@ def Pl_class(k_array, settings, z, name="class"):
         np.log10(np.max(k_array)),
         2 * len(k_array),
     )
-    (Power, Transfer, sigma_8) = my_class.write_pk_tk(
+    (Power, _, _) = my_class.write_pk_tk(
         z, name, kmin=kmin, kmax=kmax, nb_points=nb_points
     )
     h_normalized = True
@@ -122,10 +122,10 @@ def Pm_normalized(pm_file, class_dict, z_simu, z_init, name="pmnorm"):
         np.log10(np.max(k_array)),
         4 * len(k_array),
     )
-    (Power, Transfer, sigma_8) = my_class.write_pk_tk(
+    (Power, _, _) = my_class.write_pk_tk(
         z_simu, name, kmin=kmin, kmax=kmax, nb_points=nb_points, verbose=False
     )
-    (Power_init, Transfer_init, sigma_8_init) = my_class.write_pk_tk(
+    (Power_init, _, _) = my_class.write_pk_tk(
         z_init, name, kmin=kmin, kmax=kmax, nb_points=nb_points, verbose=False
     )
     interp_power = scipy.interpolate.interp1d(
@@ -134,7 +134,14 @@ def Pm_normalized(pm_file, class_dict, z_simu, z_init, name="pmnorm"):
     interp_power_init = scipy.interpolate.interp1d(
         Power_init[:, 0], Power_init[:, 1], bounds_error=False, fill_value=np.nan
     )
-    power = power_m.power_array * (interp_power(k_array) / interp_power_init(k_array))
+    coeff = my_class.model.Omega_m() / (
+        my_class.model.Omega_m() - my_class.model.Omega_b()
+    )
+    power = (
+        coeff
+        * power_m.power_array
+        * (interp_power(k_array) / interp_power_init(k_array))
+    )
     h_normalized = True
     power = power_spectra.MatterPowerSpectrum(
         k_array=k_array,
@@ -248,13 +255,14 @@ def run_minuit(
     data_yerr,
     minuit_parameters,
     minuit_limits,
-    sigma,
     linear_power_spectrum,
     non_linear_model="0",
     cost_name="least",
     ncall=100,
-    var_minos=None,
     fix_args=None,
+    launch_minos=False,
+    sigma=None,
+    var_minos=None,
 ):
     model = Pf_model(linear_power_spectrum, non_linear_model=non_linear_model)
     cost = cost_function(
@@ -270,7 +278,8 @@ def run_minuit(
             minuit.fixed[fix_args[i]] = True
     print(run_migrad(minuit, ncall=ncall))
     run_hesse(minuit)
-    # run_minos(minuit,sigma,ncall=ncall,var_minos=var_minos)
+    if launch_minos:
+        run_minos(minuit, sigma, ncall=ncall, var_minos=var_minos)
     return (minuit, linear_power_spectrum, non_linear_model)
 
 
@@ -341,7 +350,6 @@ def fitter_k_mu(
     pk_file,
     minuit_parameters,
     minuit_limits,
-    sigma,
     power_weighted=False,
     class_dict=None,
     z_simu=None,
@@ -351,7 +359,9 @@ def fitter_k_mu(
     ncall=100,
     kmax=None,
     kmin=None,
+    launch_minos=None,
     var_minos=None,
+    sigma_minos=None,
     name_pm_file=None,
     error_estimator=None,
     fix_args=None,
@@ -376,13 +386,14 @@ def fitter_k_mu(
         data_yerr,
         minuit_parameters,
         minuit_limits,
-        sigma,
         power_l_rebin,
         non_linear_model=non_linear_model,
         cost_name=cost_name,
         ncall=ncall,
-        var_minos=var_minos,
         fix_args=fix_args,
+        launch_minos=launch_minos,
+        var_minos=var_minos,
+        sigma_minos=sigma_minos,
     )
     return (minuit, power_f, power_l, linear_power_spectrum, non_linear_model)
 
