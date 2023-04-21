@@ -10,7 +10,7 @@ from lyapower import utils_fitter
 def read_pfkmu_hdf5(
     filename, field_name, power_weighted=False, error_estimator=None, **kwargs
 ):
-    power = power_spectra.FluxPowerSpectrum.init_from_gimlet(
+    power = power_spectra.FluxPowerSpectrum.init_3D_from_gimlet(
         filename,
         "hdf5",
         kmu=True,
@@ -23,7 +23,7 @@ def read_pfkmu_hdf5(
 
 
 def read_pfkmu(filename, power_weighted=False, error_estimator=None, **kwargs):
-    power = power_spectra.FluxPowerSpectrum.init_from_gimlet(
+    power = power_spectra.FluxPowerSpectrum.init_3D_from_gimlet(
         filename,
         "txt",
         kmu=True,
@@ -35,10 +35,20 @@ def read_pfkmu(filename, power_weighted=False, error_estimator=None, **kwargs):
 
 
 def read_pfkperpkpar(filename, power_weighted=False, error_estimator=None, **kwargs):
-    power = power_spectra.FluxPowerSpectrum.init_from_gimlet(
+    power = power_spectra.FluxPowerSpectrum.init_3D_from_gimlet(
         filename,
         "txt",
         kmu=False,
+        power_weighted=power_weighted,
+        error_estimator=error_estimator,
+        **kwargs,
+    )
+    return power
+
+
+def read_p1d(filename, power_weighted=False, error_estimator=None, **kwargs):
+    power = power_spectra.FluxPowerSpectrum.init_1D_from_gimlet(
+        filename,
         power_weighted=power_weighted,
         error_estimator=error_estimator,
         **kwargs,

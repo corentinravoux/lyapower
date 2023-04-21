@@ -662,7 +662,48 @@ class FluxPowerSpectrum(PowerSpectrum):
         self.dimension = dimension
 
     @classmethod
-    def init_from_gimlet(
+    def init_1D_from_gimlet(
+        cls,
+        namefile,
+        power_weighted=False,
+        error_estimator=None,
+        error_stored=False,
+        **kwargs,
+    ):
+        pk_array = np.loadtxt(namefile)
+        k_edge, bincount, pwk_edge, power = (
+            pk_array[:, 0],
+            pk_array[:, 1],
+            pk_array[:, 2],
+            pk_array[:, 3],
+        )
+
+        if power_weighted:
+            k_array = pwk_edge
+        else:
+            k_array = k_edge
+        if (error_estimator is not None) & (not (error_stored)):
+            error = utils.error_estimator(
+                power, model=error_estimator, bin_count=bincount, **kwargs
+            )
+        elif error_stored:
+            error = bincount
+        else:
+            error = None
+        dimension = "1D"
+        h_normalized = True
+        return cls(
+            dimension,
+            k_array=k_array,
+            power_array=power,
+            error_array=error,
+            file_init=namefile,
+            size_box=None,
+            h_normalized=h_normalized,
+        )
+
+    @classmethod
+    def init_3D_from_gimlet(
         cls,
         namefile,
         type_file,
