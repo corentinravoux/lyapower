@@ -2,6 +2,7 @@ import numpy as np
 import os, pickle
 from iminuit import Minuit
 import scipy.interpolate
+from scipy import integrate
 from lyapower import power_spectra
 from lyapower import CLASS
 from lyapower import utils_fitter
@@ -163,37 +164,145 @@ def Pm_normalized(pm_file, class_dict, z_simu, z_init, name="pmnorm"):
     return power
 
 
-def Pf_model(linear_power_spectrum, non_linear_model="0"):
-    def modelD0(x, b, beta, k_nl, a_nl, k_p, a_p, k_v0, a_v0, k_v1, a_v1):
-        k, mu = x[0], x[1]
-        Pf = (
-            b**2
-            * (1 + beta * mu**2) ** 2
-            * linear_power_spectrum
-            * D0(k, mu, k_nl, a_nl, k_p, a_p, k_v0, a_v0, k_v1, a_v1)
-        )
-        return Pf
+def compute_dmu(mu):
+    dmu = mu[1:] - mu[:-1]
+    dmu = np.concatenate([dmu, [1.0 - mu[-1]]], axis=0)
+    mask = dmu < 0
+    dmu[mask] = 1.0 - mu[mask]
+    return dmu
 
-    def modelD1(x, b, beta, q_1, q_2, k_v, a_v, b_v, k_p):
-        k, mu = x[0], x[1]
-        Pf = (
-            b**2
-            * (1 + beta * mu**2) ** 2
-            * linear_power_spectrum
-            * D1(k, mu, q_1, q_2, k_v, a_v, b_v, k_p, linear_power_spectrum)
-        )
-        return Pf
 
-    def modellinear(x, b, beta):
-        mu = x[1]
-        Pf = b**2 * (1 + beta * mu**2) ** 2 * linear_power_spectrum
-        return Pf
+def Pf_model(linear_power_spectrum, non_linear_model="0", N_mu_integration=1000):
 
     if non_linear_model == "0":
+
+        def modelD0(x, b, beta, k_nl, a_nl, k_p, a_p, k_v0, a_v0, k_v1, a_v1):
+            k, mu = x[0], x[1]
+            mu_next_bin = mu + compute_dmu(mu)
+            kmu = np.array(
+                [
+                    np.transpose(np.tile(k, (N_mu_integration, 1))),
+                    np.array(
+                        [
+                            np.linspace(mu[i], mu_next_bin[i], N_mu_integration)
+                            for i in range(len(k))
+                        ]
+                    ),
+                ]
+            )
+            linear_power_spectrum_repeat = np.transpose(
+                np.tile(linear_power_spectrum, (N_mu_integration, 1))
+            )
+
+            def integrand(kmu):
+                return (
+                    b**2
+                    * (1 + beta * kmu[1] ** 2) ** 2
+                    * linear_power_spectrum_repeat
+                    * D0(kmu[0], kmu[1], k_nl, a_nl, k_p, a_p, k_v0, a_v0, k_v1, a_v1)
+                )
+
+            integrand_kmu = integrand(kmu)
+            Pf_integrated = np.array(
+                [
+                    integrate.simps(integrand_kmu[i], x=kmu[1][i])
+                    / (mu_next_bin[i] - mu[i])
+                    for i in range(len(k))
+                ]
+            )
+
+            return Pf_integrated
+
         return modelD0
+
     elif non_linear_model == "1":
+
+        def modelD1(x, b, beta, q_1, q_2, k_v, a_v, b_v, k_p):
+            k, mu = x[0], x[1]
+            mu_next_bin = mu + compute_dmu(mu)
+            kmu = np.array(
+                [
+                    np.transpose(np.tile(k, (N_mu_integration, 1))),
+                    np.array(
+                        [
+                            np.linspace(mu[i], mu_next_bin[i], N_mu_integration)
+                            for i in range(len(k))
+                        ]
+                    ),
+                ]
+            )
+            linear_power_spectrum_repeat = np.transpose(
+                np.tile(linear_power_spectrum, (N_mu_integration, 1))
+            )
+
+            def integrand(kmu):
+                return (
+                    b**2
+                    * (1 + beta * kmu[1] ** 2) ** 2
+                    * linear_power_spectrum_repeat
+                    * D1(
+                        kmu[0],
+                        kmu[1],
+                        q_1,
+                        q_2,
+                        k_v,
+                        a_v,
+                        b_v,
+                        k_p,
+                        linear_power_spectrum_repeat,
+                    )
+                )
+
+            integrand_kmu = integrand(kmu)
+            Pf_integrated = np.array(
+                [
+                    integrate.simps(integrand_kmu[i], x=kmu[1][i])
+                    / (mu_next_bin[i] - mu[i])
+                    for i in range(len(k))
+                ]
+            )
+
+            return Pf_integrated
+
         return modelD1
+
     elif non_linear_model == None:
+
+        def modellinear(x, b, beta):
+            k, mu = x[0], x[1]
+            mu_next_bin = mu + compute_dmu(mu)
+            kmu = np.array(
+                [
+                    np.transpose(np.tile(k, (N_mu_integration, 1))),
+                    np.array(
+                        [
+                            np.linspace(mu[i], mu_next_bin[i], N_mu_integration)
+                            for i in range(len(k))
+                        ]
+                    ),
+                ]
+            )
+            linear_power_spectrum_repeat = np.transpose(
+                np.tile(linear_power_spectrum, (N_mu_integration, 1))
+            )
+
+            def integrand(kmu):
+                return (
+                    b**2
+                    * (1 + beta * kmu[1] ** 2) ** 2
+                    * linear_power_spectrum_repeat
+                )
+
+            integrand_kmu = integrand(kmu)
+            Pf_integrated = np.array(
+                [
+                    integrate.simps(integrand_kmu[i], x=kmu[1][i])
+                    / (mu_next_bin[i] - mu[i])
+                    for i in range(len(k))
+                ]
+            )
+            return Pf_integrated
+
         return modellinear
 
 
@@ -290,7 +399,7 @@ def run_minuit(
     run_hesse(minuit)
     if launch_minos:
         run_minos(minuit, sigma_minos, ncall=ncall, var_minos=var_minos)
-    return (minuit, linear_power_spectrum, non_linear_model)
+    return minuit
 
 
 def run_migrad(minuit, ncall=1000):
@@ -390,7 +499,7 @@ def fitter_k_mu(
         error_estimator=error_estimator,
         **kwargs,
     )
-    minuit, linear_power_spectrum, non_linear_model = run_minuit(
+    minuit = run_minuit(
         data_x,
         data_y,
         data_yerr,
@@ -405,7 +514,7 @@ def fitter_k_mu(
         var_minos=var_minos,
         sigma_minos=sigma_minos,
     )
-    return (minuit, power_f, power_l, linear_power_spectrum, non_linear_model)
+    return (minuit, power_f, power_l, power_l_rebin, non_linear_model)
 
 
 def compute_kna(minuit, power_l, eps, nloopmax=1000):
