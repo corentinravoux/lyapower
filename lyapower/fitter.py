@@ -111,7 +111,7 @@ def Pl_class(k_array, settings, z, name="class"):
         2 * len(k_array),
     )
     (Power, _, _) = my_class.write_pk_tk(
-        z, name, kmin=kmin, kmax=kmax, nb_points=nb_points
+        z, name, kmin=kmin, kmax=kmax, nb_points=nb_points, output = False
     )
     h_normalized = True
     power = power_spectra.MatterPowerSpectrum(
@@ -134,10 +134,10 @@ def Pm_normalized(pm_file, class_dict, z_simu, z_init, name="pmnorm"):
         4 * len(k_array),
     )
     (Power, _, _) = my_class.write_pk_tk(
-        z_simu, name, kmin=kmin, kmax=kmax, nb_points=nb_points, verbose=False
+        z_simu, name, kmin=kmin, kmax=kmax, nb_points=nb_points, output = False, verbose=False
     )
     (Power_init, _, _) = my_class.write_pk_tk(
-        z_init, name, kmin=kmin, kmax=kmax, nb_points=nb_points, verbose=False
+        z_init, name, kmin=kmin, kmax=kmax, nb_points=nb_points, output = False, verbose=False
     )
     interp_power = scipy.interpolate.interp1d(
         Power[:, 0], Power[:, 1], bounds_error=False, fill_value=np.nan

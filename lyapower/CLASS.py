@@ -60,7 +60,7 @@ class MyClass(object):
         else:
             self.output_format = self.settings["format"]
 
-    def write_pk_tk(self, z, name, kmin=-4, kmax=3, nb_points=2000, verbose=True):
+    def write_pk_tk(self, z, name, kmin=-4, kmax=3, nb_points=2000, output=True, verbose=True):
         """return Power Spectra with k in h.Mpc-1 and P in h3.Mpc-3 in the convention of CAMB and CLASS (the one needed for MP-Gadget).
         return Transfer function in the convention of CLASS (needed for MP-Genic) or CAMB (needed for 2LPT) !!!
         note : . CLASS format for MP-GENIC, CAMB format for 2LPT, CAMB format for COSMICIC
@@ -68,9 +68,9 @@ class MyClass(object):
         """
         self.model.compute()
         Power, sigma_8 = self.write_pk(
-            name, z, kmin=kmin, kmax=kmax, nb_points=nb_points, verbose=verbose
+            name, z, kmin=kmin, kmax=kmax, nb_points=nb_points,output=output, verbose=verbose
         )
-        Transfer = self.write_tk(name, z)
+        Transfer = self.write_tk(name, z,output=output)
         return (Power, Transfer, sigma_8)
 
     def write_pk_tk_grid_variation(
@@ -82,6 +82,7 @@ class MyClass(object):
         kmin=-4,
         kmax=3,
         nb_points=2000,
+        output=True,
     ):
         """return Power Spectra with k in h.Mpc-1 and P in h3.Mpc-3 in the convention of CAMB and CLASS (the one needed for MP-Gadget).
         return Transfer function in the convention of CLASS (needed for MP-Genic) or CAMB (needed for 2LPT) !!!
@@ -101,9 +102,9 @@ class MyClass(object):
             self.model.set(dict_to_set)
             self.model.compute()
             Power, sigma_8 = self.write_pk(
-                name, z, kmin=kmin, kmax=kmax, nb_points=nb_points
+                name, z, kmin=kmin, kmax=kmax, nb_points=nb_points, output= output
             )
-            Transfer = self.write_tk(name, z)
+            Transfer = self.write_tk(name, z,output=output)
             if derived_params is not None:
                 par = self.model.get_current_derived_parameters(derived_params)
                 print(par.keys())
@@ -122,6 +123,7 @@ class MyClass(object):
         nb_neutrinos_massif=1,
         neutrino_mass=None,
         method="cbnu",
+        output=True,
     ):
         """return Power Spectra with k in h.Mpc-1 and P in h3.Mpc-3 in the convention of CAMB and CLASS (the one needed for MP-Gadget).
         return Transfer function in the convention of CLASS (needed for MP-Genic) or CAMB (needed for 2LPT) !!!
@@ -167,13 +169,13 @@ class MyClass(object):
             self.model.compute()
 
         Power, sigma_8 = self.write_pk(
-            name, z, kmin=kmin, kmax=kmax, nb_points=nb_points
+            name, z, kmin=kmin, kmax=kmax, nb_points=nb_points, output=output
         )
-        Transfer = self.write_tk(name, z)
+        Transfer = self.write_tk(name, z,output=output)
         return (Power, Transfer, sigma_8)
 
     def write_pk(
-        self, name, z, kmin=-4, kmax=3, nb_points=2000, header_output=True, verbose=True
+        self, name, z, kmin=-4, kmax=3, nb_points=2000, output=True, header_output=True, verbose=True
     ):
         if self.output_format == "class":
             (k_space, Pk, sigma_8) = self.compute_power_spectrum(
@@ -193,13 +195,14 @@ class MyClass(object):
                 z, np.min(k_space), np.max(k_space), len(k_space)
             )
         Power = np.stack([k_space, Pk], axis=1)
-        if header_output:
-            np.savetxt("pk_{}_z{}.dat".format(name, z), Power, header=header)
-        else:
-            np.savetxt("pk_{}_z{}.dat".format(name, z), Power)
+        if output:
+            if header_output:
+                np.savetxt("pk_{}_z{}.dat".format(name, z), Power, header=header)
+            else:
+                np.savetxt("pk_{}_z{}.dat".format(name, z), Power)
         return (Power, sigma_8)
 
-    def write_tk(self, name, z, header_output=True):
+    def write_tk(self, name, z, output=True, header_output=True):
         if self.output_format == "class":
             Transfer_dict = self.model.get_transfer(z, output_format="class")
             Transfer = np.stack([Tk for key, Tk in Transfer_dict.items()], axis=1)
@@ -218,15 +221,16 @@ class MyClass(object):
         for i in range(len(list_key)):
             head = head + "            " + str(i + 1) + ":" + list_key[i]
         header = header + head
-        if header_output:
-            np.savetxt(
-                "tk_{}_z{}.dat".format(name, z),
-                Transfer,
-                header=header,
-                delimiter="    ",
-            )
-        else:
-            np.savetxt("tk_{}_z{}.dat".format(name, z), Transfer, delimiter="    ")
+        if output:
+            if header_output:
+                np.savetxt(
+                    "tk_{}_z{}.dat".format(name, z),
+                    Transfer,
+                    header=header,
+                    delimiter="    ",
+                )
+            else:
+                np.savetxt("tk_{}_z{}.dat".format(name, z), Transfer, delimiter="    ")
         return Transfer
 
     def compute_power_spectrum(
