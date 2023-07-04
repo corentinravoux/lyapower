@@ -111,7 +111,7 @@ def Pl_class(k_array, settings, z, name="class"):
         2 * len(k_array),
     )
     (Power, _, _) = my_class.write_pk_tk(
-        z, name, kmin=kmin, kmax=kmax, nb_points=nb_points, output = False
+        z, name, kmin=kmin, kmax=kmax, nb_points=nb_points, output=False
     )
     h_normalized = True
     power = power_spectra.MatterPowerSpectrum(
@@ -124,6 +124,30 @@ def Pl_class(k_array, settings, z, name="class"):
     return power
 
 
+def Pl_cosmoprimo(k_array, settings, z):
+    cosmoprimo = CLASS.CosmoprimoInterface(os.getcwd(), settings)
+    Power_no_bao = cosmoprimo.Pl_class_cosmoprimo_no_wiggle(k_array, z)
+    Power_bao = cosmoprimo.Pl_class_cosmoprimo(k_array, z)
+
+    h_normalized = True
+    power = power_spectra.MatterPowerSpectrum(
+        k_array=k_array,
+        power_array=Power_bao,
+        dimension="1D",
+        specie="matter",
+        h_normalized=h_normalized,
+    )
+    power_no_bao = power_spectra.MatterPowerSpectrum(
+        k_array=k_array,
+        power_array=Power_no_bao,
+        dimension="1D",
+        specie="matter",
+        h_normalized=h_normalized,
+    )
+
+    return power, power_no_bao
+
+
 def Pm_normalized(pm_file, class_dict, z_simu, z_init, name="pmnorm"):
     power_m = read_pk(pm_file)
     k_array = power_m.k_array
@@ -134,10 +158,22 @@ def Pm_normalized(pm_file, class_dict, z_simu, z_init, name="pmnorm"):
         4 * len(k_array),
     )
     (Power, _, _) = my_class.write_pk_tk(
-        z_simu, name, kmin=kmin, kmax=kmax, nb_points=nb_points, output = False, verbose=False
+        z_simu,
+        name,
+        kmin=kmin,
+        kmax=kmax,
+        nb_points=nb_points,
+        output=False,
+        verbose=False,
     )
     (Power_init, _, _) = my_class.write_pk_tk(
-        z_init, name, kmin=kmin, kmax=kmax, nb_points=nb_points, output = False, verbose=False
+        z_init,
+        name,
+        kmin=kmin,
+        kmax=kmax,
+        nb_points=nb_points,
+        output=False,
+        verbose=False,
     )
     interp_power = scipy.interpolate.interp1d(
         Power[:, 0], Power[:, 1], bounds_error=False, fill_value=np.nan
@@ -172,8 +208,12 @@ def compute_dmu(mu):
     return dmu
 
 
-def Pf_model(linear_power_spectrum, non_linear_model="0", N_mu_integration=1000):
-
+def Pf_model(
+    linear_power_spectrum,
+    non_linear_model="0",
+    N_mu_integration=1000,
+    linear_power_spectrum_no_bao=None,
+):
     if non_linear_model == "0":
 
         def modelD0(x, b, beta, k_nl, a_nl, k_p, a_p, k_v0, a_v0, k_v1, a_v1):
@@ -266,6 +306,69 @@ def Pf_model(linear_power_spectrum, non_linear_model="0", N_mu_integration=1000)
 
         return modelD1
 
+    elif non_linear_model == "1_bao":  # LUCAS' MODEL
+        wiggle_power_spectrum = linear_power_spectrum - linear_power_spectrum_no_bao
+
+        def modelD1BAO(x, b, beta, q_1, q_2, k_v, a_v, b_v, k_p, S_p, S_t):
+            k, mu = x[0], x[1]
+
+            Snl = (S_p * mu) ** 2 + (S_t**2 * (1 - mu**2))
+            damped_linear_power_spectrum = (
+                linear_power_spectrum_no_bao
+                + wiggle_power_spectrum * np.exp((-((k * Snl) ** 2)) / 2)
+            )
+
+            mu_next_bin = mu + compute_dmu(mu)
+            kmu = np.array(
+                [
+                    np.transpose(np.tile(k, (N_mu_integration, 1))),
+                    np.array(
+                        [
+                            np.linspace(mu[i], mu_next_bin[i], N_mu_integration)
+                            for i in range(len(k))
+                        ]
+                    ),
+                ]
+            )
+            linear_power_spectrum_repeat = np.transpose(
+                np.tile(linear_power_spectrum, (N_mu_integration, 1))
+            )
+            damped_linear_power_spectrum_repeat = np.transpose(
+                np.tile(damped_linear_power_spectrum, (N_mu_integration, 1))
+            )
+
+            def integrand(kmu):
+                return (
+                    b**2
+                    * (1 + beta * kmu[1] ** 2) ** 2
+                    * damped_linear_power_spectrum_repeat
+                    * D1(
+                        kmu[0],
+                        kmu[1],
+                        q_1,
+                        q_2,
+                        k_v,
+                        a_v,
+                        b_v,
+                        k_p,
+                        linear_power_spectrum_repeat,
+                    )
+                )
+
+            integrand_kmu = integrand(kmu)
+
+            Pf_integrated = np.array(
+                [
+                    integrate.simps(integrand_kmu[i], x=kmu[1][i])
+                    / (mu_next_bin[i] - mu[i])
+                    for i in range(len(k))
+                ]
+            )
+
+            return Pf_integrated
+
+        return modelD1BAO
+
     elif non_linear_model == None:
 
         def modellinear(x, b, beta):
@@ -317,6 +420,11 @@ def custom_least_squares(model, data_x, data_y, data_yerr, non_linear_model="0")
         z = (data_y - ym) / data_yerr
         return np.nansum(z**2)
 
+    def costD1BAO(b, beta, q_1, q_2, k_v, a_v, b_v, k_p, S_p, S_t):
+        ym = model(data_x, b, beta, q_1, q_2, k_v, a_v, b_v, k_p, S_p, S_t)
+        z = (data_y - ym) / data_yerr
+        return np.nansum(z**2)
+
     def costlinear(b, beta):
         ym = model(data_x, b, beta)
         z = (data_y - ym) / data_yerr
@@ -326,6 +434,8 @@ def custom_least_squares(model, data_x, data_y, data_yerr, non_linear_model="0")
         return costD0
     elif non_linear_model == "1":
         return costD1
+    elif non_linear_model == "1_bao":
+        return costD1BAO
     elif non_linear_model == None:
         return costlinear
 
@@ -341,6 +451,11 @@ def custom_least_squares_arinyo(model, data_x, data_y, data_yerr, non_linear_mod
         z = ((data_y**2 / ym) - ym) / data_yerr
         return np.nansum(z**2)
 
+    def costD1BAO(b, beta, q_1, q_2, k_v, a_v, b_v, k_p, S_p, S_t):
+        ym = model(data_x, b, beta, q_1, q_2, k_v, a_v, b_v, k_p, S_p, S_t)
+        z = ((data_y**2 / ym) - ym) / data_yerr
+        return np.nansum(z**2)
+
     def costlinear(b, beta):
         ym = model(data_x, b, beta)
         z = ((data_y**2 / ym) - ym) / data_yerr
@@ -350,6 +465,8 @@ def custom_least_squares_arinyo(model, data_x, data_y, data_yerr, non_linear_mod
         return costD0
     elif non_linear_model == "1":
         return costD1
+    elif non_linear_model == "1_bao":
+        return costD1BAO
     elif non_linear_model == None:
         return costlinear
 
@@ -374,7 +491,7 @@ def run_minuit(
     data_yerr,
     minuit_parameters,
     minuit_limits,
-    linear_power_spectrum,
+    power_l_rebin,
     non_linear_model="0",
     cost_name="least",
     ncall=100,
@@ -382,8 +499,15 @@ def run_minuit(
     launch_minos=False,
     sigma_minos=None,
     var_minos=None,
+    N_mu_integration=1000,
+    power_l_no_bao_rebin=None,
 ):
-    model = Pf_model(linear_power_spectrum, non_linear_model=non_linear_model)
+    model = Pf_model(
+        power_l_rebin,
+        non_linear_model=non_linear_model,
+        N_mu_integration=N_mu_integration,
+        linear_power_spectrum_no_bao=power_l_no_bao_rebin,
+    )
     cost = cost_function(
         model, data_x, data_y, data_yerr, cost_name, non_linear_model=non_linear_model
     )
@@ -445,23 +569,41 @@ def prepare_data(
             loglin=rebin["loglin"],
             k_loglin=rebin["k_loglin"],
         )
+    power_l_no_bao = None
     if pk_file == "class":
         power_l = Pl_class(power_f.k_array[0], class_dict, z_simu, name="class")
     elif pk_file == "pmnorm":
         power_l = Pm_normalized(name_pm_file, class_dict, z_simu, z_init, name="pmnorm")
+    elif pk_file == "cosmoprimo":
+        power_l, power_l_no_bao = Pl_cosmoprimo(power_f.k_array[0], class_dict, z_simu)
     else:
         power_l = read_pk(pk_file, power_weighted=power_weighted)
 
     power_l_rebin = rebin_matter_power(
         power_l.power_array, power_l.k_array, power_f.k_array[0]
     )
+    power_l_no_bao_rebin = None
+    if power_l_no_bao is not None:
+        power_l_no_bao_rebin = rebin_matter_power(
+            power_l_no_bao.power_array, power_l_no_bao.k_array, power_f.k_array[0]
+        )
+
     data_x = power_f.k_array
     data_y = power_f.power_array
     if power_f.error_array is None:
         raise KeyError("Choose an error_estimator")
     data_yerr = power_f.error_array
 
-    return (power_f, power_l, power_l_rebin, data_x, data_y, data_yerr)
+    return (
+        power_f,
+        power_l,
+        power_l_rebin,
+        data_x,
+        data_y,
+        data_yerr,
+        power_l_no_bao,
+        power_l_no_bao_rebin,
+    )
 
 
 def fitter_k_mu(
@@ -484,9 +626,19 @@ def fitter_k_mu(
     name_pm_file=None,
     error_estimator=None,
     fix_args=None,
+    N_mu_integration=1000,
     **kwargs,
 ):
-    (power_f, power_l, power_l_rebin, data_x, data_y, data_yerr) = prepare_data(
+    (
+        power_f,
+        power_l,
+        power_l_rebin,
+        data_x,
+        data_y,
+        data_yerr,
+        power_l_no_bao,
+        power_l_no_bao_rebin,
+    ) = prepare_data(
         pf_file,
         pk_file,
         power_weighted=power_weighted,
@@ -513,8 +665,18 @@ def fitter_k_mu(
         launch_minos=launch_minos,
         var_minos=var_minos,
         sigma_minos=sigma_minos,
+        N_mu_integration=N_mu_integration,
+        power_l_no_bao_rebin=power_l_no_bao_rebin,
     )
-    return (minuit, power_f, power_l, power_l_rebin, non_linear_model)
+    return (
+        minuit,
+        power_f,
+        power_l,
+        power_l_rebin,
+        non_linear_model,
+        power_l_no_bao,
+        power_l_no_bao_rebin,
+    )
 
 
 def compute_kna(minuit, power_l, eps, nloopmax=1000):
@@ -566,28 +728,37 @@ def plot_pf_pm(power_f, power_m, mu_bin, legend):
 def plot_fit(
     minuit,
     power_f,
-    power_l,
-    linear_power_spectrum,
+    power_l_rebin,
     non_linear_model,
     mu_bin,
     legend,
     name_out="fit_results",
+    N_mu_integration=1000,
+    power_l_no_bao_rebin=None,
+    plot_no_bao_ratio=False,
     **kwargs,
 ):
-    model = Pf_model(linear_power_spectrum, non_linear_model=non_linear_model)
-
+    model = Pf_model(
+        power_l_rebin,
+        non_linear_model=non_linear_model,
+        N_mu_integration=N_mu_integration,
+        linear_power_spectrum_no_bao=power_l_no_bao_rebin,
+    )
     minuit_params = []
     for i in range(len(minuit.parameters)):
         minuit_params.append(minuit.params[minuit.parameters[i]].value)
-    power_l_rebin = rebin_matter_power(
-        power_l.power_array, power_l.k_array, power_f.k_array[0]
-    )
-    pf_over_pm_data = power_f.power_array / power_l_rebin
+
+    if plot_no_bao_ratio:
+        power_l_plot = power_l_no_bao_rebin
+    else:
+        power_l_plot = power_l_rebin
+
+    pf_over_pm_data = power_f.power_array / power_l_plot
     if power_f.error_array is not None:
-        error_array = power_f.error_array / power_l_rebin
+        error_array = power_f.error_array / power_l_plot
     else:
         error_array = None
-    pf_over_pm_model = model(power_f.k_array, *minuit_params) / power_l_rebin
+    pf_over_pm_model = model(power_f.k_array, *minuit_params) / power_l_plot
 
     color = [f"C{i}" for i in range(len(mu_bin))]
 
@@ -600,7 +771,6 @@ def plot_fit(
     )
     power1.open_plot(**kwargs)
 
-    h_normalized = power_l.h_normalized
     power2 = power_spectra.FluxPowerSpectrum(
         k_array=power_f.k_array,
         power_array=pf_over_pm_data,
