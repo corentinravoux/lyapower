@@ -207,11 +207,11 @@ def Pm(pm_file, name="pm"):
     return power_m
 
 
-def compute_dmu(mu):
+def compute_dmu(mu, mu_max=1.0):
     dmu = mu[1:] - mu[:-1]
-    dmu = np.concatenate([dmu, [1.0 - mu[-1]]], axis=0)
+    dmu = np.concatenate([dmu, [mu_max - mu[-1]]], axis=0)
     mask = dmu < 0
-    dmu[mask] = 1.0 - mu[mask]
+    dmu[mask] = mu_max - mu[mask]
     return dmu
 
 
@@ -221,13 +221,14 @@ def Pf_model(
     linear_power_spectrum_no_bao=None,
     integrate_model=True,
     N_mu_integration=1000,
+    mu_max=1.0,
 ):
     if integrate_model:
         if non_linear_model == "0":
 
             def modelD0(x, b, beta, k_nl, a_nl, k_p, a_p, k_v0, a_v0, k_v1, a_v1):
                 k, mu = x[0], x[1]
-                mu_next_bin = mu + compute_dmu(mu)
+                mu_next_bin = mu + compute_dmu(mu, mu_max=mu_max)
                 kmu = np.array(
                     [
                         np.transpose(np.tile(k, (N_mu_integration, 1))),
@@ -270,7 +271,7 @@ def Pf_model(
 
             def modelD1(x, b, beta, q_1, q_2, k_v, a_v, b_v, k_p):
                 k, mu = x[0], x[1]
-                mu_next_bin = mu + compute_dmu(mu)
+                mu_next_bin = mu + compute_dmu(mu, mu_max=mu_max)
                 kmu = np.array(
                     [
                         np.transpose(np.tile(k, (N_mu_integration, 1))),
@@ -329,7 +330,7 @@ def Pf_model(
                     + wiggle_power_spectrum * np.exp((-((k * Snl) ** 2)) / 2)
                 )
 
-                mu_next_bin = mu + compute_dmu(mu)
+                mu_next_bin = mu + compute_dmu(mu, mu_max=mu_max)
                 kmu = np.array(
                     [
                         np.transpose(np.tile(k, (N_mu_integration, 1))),
@@ -384,7 +385,7 @@ def Pf_model(
 
             def modellinear(x, b, beta):
                 k, mu = x[0], x[1]
-                mu_next_bin = mu + compute_dmu(mu)
+                mu_next_bin = mu + compute_dmu(mu, mu_max=mu_max)
                 kmu = np.array(
                     [
                         np.transpose(np.tile(k, (N_mu_integration, 1))),
@@ -565,6 +566,7 @@ def run_minuit(
     var_minos=None,
     integrate_model=True,
     N_mu_integration=1000,
+    mu_max=1.0,
     power_l_no_bao_rebin=None,
 ):
     model = Pf_model(
@@ -573,6 +575,7 @@ def run_minuit(
         linear_power_spectrum_no_bao=power_l_no_bao_rebin,
         integrate_model=integrate_model,
         N_mu_integration=N_mu_integration,
+        mu_max=mu_max,
     )
     cost = cost_function(
         model, data_x, data_y, data_yerr, cost_name, non_linear_model=non_linear_model
@@ -696,6 +699,7 @@ def fitter_k_mu(
     fix_args=None,
     integrate_model=True,
     N_mu_integration=1000,
+    mu_max=1.0,
     **kwargs,
 ):
     (
@@ -736,6 +740,7 @@ def fitter_k_mu(
         sigma_minos=sigma_minos,
         integrate_model=integrate_model,
         N_mu_integration=N_mu_integration,
+        mu_max=mu_max,
         power_l_no_bao_rebin=power_l_no_bao_rebin,
     )
     return (
@@ -807,6 +812,7 @@ def plot_fit(
     N_mu_integration=1000,
     power_l_no_bao_rebin=None,
     plot_no_bao_ratio=False,
+    mu_max=1.0,
     **kwargs,
 ):
     model = Pf_model(
@@ -815,6 +821,7 @@ def plot_fit(
         linear_power_spectrum_no_bao=power_l_no_bao_rebin,
         integrate_model=integrate_model,
         N_mu_integration=N_mu_integration,
+        mu_max=mu_max,
     )
     minuit_params = []
     for i in range(len(minuit.parameters)):
