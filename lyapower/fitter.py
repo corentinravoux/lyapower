@@ -95,9 +95,10 @@ def D0(k, mu, k_nl, a_nl, k_p, a_p, k_v0, a_v0, k_v1, a_v1):
 
 
 def D1(k, mu, q_1, q_2, k_v, a_v, b_v, k_p, linear_power_spectrum):
-    Delta = (1 / (2 * np.pi**2)) * k**3 * linear_power_spectrum
+    Delta_square = (1 / (2 * np.pi**2)) * k**3 * linear_power_spectrum
     non_linear_term = np.exp(
-        (q_1 * Delta**2 + q_2 * Delta**4) * (1 - ((k / k_v) ** a_v) * mu**b_v)
+        (q_1 * Delta_square + q_2 * Delta_square**2)
+        * (1 - ((k / k_v) ** a_v) * mu**b_v)
         - (k / k_p) ** 2
     )
     return non_linear_term
