@@ -207,14 +207,6 @@ def Pm(pm_file, name="pm"):
     return power_m
 
 
-def compute_dmu(mu, mu_max=1.0):
-    dmu = mu[1:] - mu[:-1]
-    dmu = np.concatenate([dmu, [mu_max - mu[-1]]], axis=0)
-    mask = dmu < 0
-    dmu[mask] = mu_max - mu[mask]
-    return dmu
-
-
 def Pf_model(
     linear_power_spectrum,
     non_linear_model="0",
@@ -228,7 +220,9 @@ def Pf_model(
 
             def modelD0(x, b, beta, k_nl, a_nl, k_p, a_p, k_v0, a_v0, k_v1, a_v1):
                 k, mu = x[0], x[1]
-                mu_next_bin = mu + compute_dmu(mu, mu_max=mu_max)
+                mu_next_bin = mu + power_spectra.PowerSpectrum.compute_dmu(
+                    mu, mu_max=mu_max
+                )
                 kmu = np.array(
                     [
                         np.transpose(np.tile(k, (N_mu_integration, 1))),
@@ -271,7 +265,9 @@ def Pf_model(
 
             def modelD1(x, b, beta, q_1, q_2, k_v, a_v, b_v, k_p):
                 k, mu = x[0], x[1]
-                mu_next_bin = mu + compute_dmu(mu, mu_max=mu_max)
+                mu_next_bin = mu + power_spectra.PowerSpectrum.compute_dmu(
+                    mu, mu_max=mu_max
+                )
                 kmu = np.array(
                     [
                         np.transpose(np.tile(k, (N_mu_integration, 1))),
@@ -330,7 +326,9 @@ def Pf_model(
                     + wiggle_power_spectrum * np.exp((-((k * Snl) ** 2)) / 2)
                 )
 
-                mu_next_bin = mu + compute_dmu(mu, mu_max=mu_max)
+                mu_next_bin = mu + power_spectra.PowerSpectrum.compute_dmu(
+                    mu, mu_max=mu_max
+                )
                 kmu = np.array(
                     [
                         np.transpose(np.tile(k, (N_mu_integration, 1))),
@@ -385,7 +383,9 @@ def Pf_model(
 
             def modellinear(x, b, beta):
                 k, mu = x[0], x[1]
-                mu_next_bin = mu + compute_dmu(mu, mu_max=mu_max)
+                mu_next_bin = mu + power_spectra.PowerSpectrum.compute_dmu(
+                    mu, mu_max=mu_max
+                )
                 kmu = np.array(
                     [
                         np.transpose(np.tile(k, (N_mu_integration, 1))),
@@ -621,6 +621,8 @@ def prepare_data(
     kmin=None,
     name_pm_file=None,
     error_estimator=None,
+    use_wavenumber_centers=True,
+    use_mu_centers=False,
     **kwargs,
 ):
     power_f = read_pfkmu(
@@ -629,7 +631,23 @@ def prepare_data(
         error_estimator=error_estimator,
         **kwargs,
     )
+    if use_wavenumber_centers:
+        if power_weighted:
+            print("Wavenumbers already power weighted, skipping centering")
+        else:
+            power_f.center_wavenumbers_2d()
+
+    if use_mu_centers:
+        if power_weighted:
+            print("Mu already power weighted, skipping centering")
+        else:
+            print(
+                "Mu centering not properly tested. I suggest to use integration over mu"
+            )
+            power_f.center_mu_2d()
+
     power_f.cut_extremum(kmin, kmax)
+
     rebin = utils_fitter.return_key(kwargs, "rebin", None)
     if rebin is not None:
         power_f.rebin_2d_arrays(
@@ -700,8 +718,31 @@ def fitter_k_mu(
     integrate_model=True,
     N_mu_integration=1000,
     mu_max=1.0,
+    use_wavenumber_centers=True,
+    use_mu_centers=False,
     **kwargs,
 ):
+    if power_weighted is False:
+        if use_wavenumber_centers is False:
+            raise ValueError(
+                "You are computing the model at the wavenumber edges, it will lead to wrong values, "
+                "please choose the option use_wavenumber_centers, "
+                "or use the power_weighted option"
+            )
+        if (use_mu_centers is False) & (integrate_model is False):
+            raise ValueError(
+                "You are computing the model at the mu edges, it will lead to wrong values, "
+                "please choose between the options integrate_model or use_mu_centers, "
+                "or use the power_weighted option"
+            )
+    else:
+        print("Power weigthed fit not tested.")
+
+    if use_mu_centers & integrate_model:
+        raise ValueError(
+            "You are integrating the model between centered mu values, "
+            "please choose between the options integrate_model or use_mu_centers"
+        )
     (
         power_f,
         power_l,
@@ -722,6 +763,8 @@ def fitter_k_mu(
         kmin=kmin,
         name_pm_file=name_pm_file,
         error_estimator=error_estimator,
+        use_wavenumber_centers=use_wavenumber_centers,
+        use_mu_centers=use_mu_centers,
         **kwargs,
     )
     minuit = run_minuit(

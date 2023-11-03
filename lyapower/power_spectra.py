@@ -32,12 +32,6 @@ class PowerSpectrum(object):
         self.h_normalized = h_normalized
         self.error_array = error_array
 
-        # if(k_array is not None):
-        #     print(mask[~mask])
-        #     mask = self.k_array[0] != np.nan
-        #     self.k_array = np.transpose(np.transpose(self.k_array)[mask])
-        #     self.power_array = self.power_array[mask]
-
     @classmethod
     def init_from_genpk_file(cls, name_file, size_box):
         """Load a GenPk format power spectum, plotting the DM and the neutrinos (if present)
@@ -74,6 +68,32 @@ class PowerSpectrum(object):
             size_box=None,
             h_normalized=h_normalized,
         )
+
+    def center_wavenumbers_1d(self):
+        k_centers = (self.k_array[1:] + self.k_array[:-1]) / 2
+        last_value = (3 * self.k_array[-1] - self.k_array[-2]) / 2
+        self.k_array = np.concatenate([k_centers, [last_value]])
+
+    def center_wavenumbers_2d(self):
+        mus = np.unique(self.k_array[1])
+        for mu in mus:
+            mask = self.k_array[1] == mu
+            k_edge = self.k_array[0][mask]
+            k_centers = (k_edge[1:] + k_edge[:-1]) / 2
+            last_value = (3 * k_edge[-1] - k_edge[-2]) / 2
+            self.k_array[0][mask] = np.concatenate([k_centers, [last_value]])
+
+    @staticmethod
+    def compute_dmu(mu, mu_max=1.0):
+        dmu = mu[1:] - mu[:-1]
+        dmu = np.concatenate([dmu, [mu_max - mu[-1]]], axis=0)
+        mask = dmu < 0
+        dmu[mask] = mu_max - mu[mask]
+        return dmu
+
+    def center_mu_2d(self, mu_max=1.0):
+        dmu = PowerSpectrum.compute_dmu(self.k_array[1], mu_max=mu_max)
+        self.k_array[1] = self.k_array[1] + dmu / 2
 
     def rebin_arrays(self, nb_bin, operation="mean"):
         new_k = np.logspace(
@@ -765,7 +785,7 @@ class FluxPowerSpectrum(PowerSpectrum):
     @staticmethod
     def init_kmu(pk_array):
         """Pf(k,mu) gimlet file contains
-        - k_edge: edge (higher) of the k bin considered
+        - k_edge: edge (lower) of the k bin considered
         - mu_edge: edge (lower) of the mu bin considered (mu positive)
         - bincount: number of mode (pairs) computed in the bin
         - pwk: power weighted k
@@ -784,8 +804,8 @@ class FluxPowerSpectrum(PowerSpectrum):
     @staticmethod
     def init_kperpar(pk_array):
         """Pf(kperp,kpar) gimlet file contains
-        - k_perp: edge (higher) of the k perp bin considered
-        - k_par: edge (higher) of the k par bin considered
+        - k_perp: edge (lower) of the k perp bin considered
+        - k_par: edge (lower) of the k par bin considered
         - bincount: number of mode (pairs) computed in the bin
         - pwkperp: power weighted k perp
         - pwkpar: power weighted k par
@@ -984,7 +1004,6 @@ def launch_comparison_power_spectra_different_ref(
 
 
 def compute_k_extremums(power_Ll, power_Sl, power_Ss):
-
     mu_bins = np.unique(power_Ll.k_array[1])
     k_max = []
     for i in range(len(mu_bins)):
@@ -1019,7 +1038,6 @@ def compute_k_extremums(power_Ll, power_Sl, power_Ss):
 
 
 def compute_k_extremums_1D(power_Ll, power_Sl, power_Ss):
-
     min_k = np.min(power_Ss.k_array)
     max_k = np.max(power_Ss.k_array)
 
@@ -1232,7 +1250,6 @@ def splice_3D(
 
 
 def verif_slicing(power_verif, power_spliced, mu_bins, name_out, style=None):
-
     if style is not None:
         plt.style.use(style)
     plt.figure(figsize=(9, 6))
