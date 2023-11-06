@@ -31,6 +31,7 @@ class PowerSpectrum(object):
         self.size_box = size_box
         self.h_normalized = h_normalized
         self.error_array = error_array
+        self.edge_stored = True
 
     @classmethod
     def init_from_genpk_file(cls, name_file, size_box):
@@ -73,6 +74,7 @@ class PowerSpectrum(object):
         k_centers = (self.k_array[1:] + self.k_array[:-1]) / 2
         last_value = (3 * self.k_array[-1] - self.k_array[-2]) / 2
         self.k_array = np.concatenate([k_centers, [last_value]])
+        self.edge_stored = False
 
     def center_wavenumbers_2d(self):
         mus = np.unique(self.k_array[1])
@@ -82,6 +84,7 @@ class PowerSpectrum(object):
             k_centers = (k_edge[1:] + k_edge[:-1]) / 2
             last_value = (3 * k_edge[-1] - k_edge[-2]) / 2
             self.k_array[0][mask] = np.concatenate([k_centers, [last_value]])
+        self.edge_stored = False
 
     @staticmethod
     def compute_dmu(mu, mu_max=1.0):
@@ -94,6 +97,7 @@ class PowerSpectrum(object):
     def center_mu_2d(self, mu_max=1.0):
         dmu = PowerSpectrum.compute_dmu(self.k_array[1], mu_max=mu_max)
         self.k_array[1] = self.k_array[1] + dmu / 2
+        self.edge_stored = False
 
     def rebin_arrays(self, nb_bin, operation="mean"):
         new_k = np.logspace(

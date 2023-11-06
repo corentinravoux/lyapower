@@ -724,13 +724,13 @@ def fitter_k_mu(
 ):
     if power_weighted is False:
         if use_wavenumber_centers is False:
-            raise ValueError(
+            print(
                 "You are computing the model at the wavenumber edges, it will lead to wrong values, "
                 "please choose the option use_wavenumber_centers, "
                 "or use the power_weighted option"
             )
         if (use_mu_centers is False) & (integrate_model is False):
-            raise ValueError(
+            print(
                 "You are computing the model at the mu edges, it will lead to wrong values, "
                 "please choose between the options integrate_model or use_mu_centers, "
                 "or use the power_weighted option"
@@ -739,7 +739,7 @@ def fitter_k_mu(
         print("Power weigthed fit not tested.")
 
     if use_mu_centers & integrate_model:
-        raise ValueError(
+        print(
             "You are integrating the model between centered mu values, "
             "please choose between the options integrate_model or use_mu_centers"
         )
