@@ -6,13 +6,15 @@ Created on Tue Dec  3 16:29:56 2019
 @author: cravoux
 """
 
+import math
+
+import h5py
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.interpolate import interp1d
-import math
 from matplotlib.pyplot import cm
+from scipy.interpolate import interp1d
+
 from lyapower import utils_fitter as utils
-import h5py
 
 
 class PowerSpectrum(object):
@@ -909,6 +911,20 @@ class FluxPowerSpectrum(PowerSpectrum):
 
 
 def init_spectrum(type_init, filename, boxsize=None):
+    """
+    The init_spectrum function takes in a type_init and filename, and returns a PowerSpectrum object.
+
+    Args:
+        type_init: Determine what type of file is being read in
+        filename: Specify the file to read from
+        boxsize: Specify the boxsize of the simulation
+
+    Returns:
+        A powerspectrum object
+
+    Doc Author:
+        Trelent
+    """
     if type_init == "GENPK":
         spectrum = PowerSpectrum.init_from_genpk_file(filename, boxsize)
     elif type_init == "ASCII":
@@ -1007,7 +1023,31 @@ def launch_comparison_power_spectra_different_ref(
     reference_spectrum.close_plot()
 
 
-def compute_k_extremums(power_Ll, power_Sl, power_Ss):
+def compute_k_extremums(
+    power_Ll,
+    power_Sl,
+    power_Ss,
+    tol=0.01,
+):
+    """
+    The compute_k_extremums function takes in the power spectra of the long-long, short-long and short-short modes.
+    It then computes a list of k_max values for each mu bin. The k_max value is defined as the maximum value of
+    k where P(k) = P(Ss)(k). This function is used to compute an upper limit on our integration range when computing
+    the covariance matrix.
+
+    Args:
+        power_Ll: Compute the k_max for each mu bin
+        power_Sl: Compute the interpolation of power_sl
+        power_Ss: Find the minimum and maximum k values for each mu bin
+        tol: Compute the k_max value
+        : Compute the upper limit on our integration range when computing
+
+    Returns:
+        A list of k_max values for each mu bin
+
+    Doc Author:
+        Trelent
+    """
     mu_bins = np.unique(power_Ll.k_array[1])
     k_max = []
     for i in range(len(mu_bins)):
@@ -1033,15 +1073,35 @@ def compute_k_extremums(power_Ll, power_Sl, power_Ss):
                 )
                 / power_Ll.power_array[mask_k_Ll]
             )
-            < 0.01
+            < tol
         )
-
         k_max.append(np.max(power_Ll.k_array[0][mask_k_Ll][mask_k_select]))
 
     return k_max
 
 
-def compute_k_extremums_1D(power_Ll, power_Sl, power_Ss):
+def compute_k_extremums_1D(
+    power_Ll,
+    power_Sl,
+    power_Ss,
+    tol=0.01,
+):
+    """
+    The compute_k_extremums_1D function computes the maximum k value for a given power spectrum.
+
+    Args:
+        power_Ll: Compute the k_max value
+        power_Sl: Compute the maximum k value
+        power_Ss: Compute the maximum k value
+        tol: Determine the maximum k value
+        : Compute the maximum k value for a given power spectrum
+
+    Returns:
+        The maximum k value
+
+    Doc Author:
+        Trelent
+    """
     min_k = np.min(power_Ss.k_array)
     max_k = np.max(power_Ss.k_array)
 
@@ -1056,7 +1116,7 @@ def compute_k_extremums_1D(power_Ll, power_Sl, power_Ss):
             )
             / power_Ll.power_array[mask_k_Ll]
         )
-        < 0.01
+        < tol
     )
 
     k_max = np.max(power_Ll.k_array[mask_k_Ll][mask_k_select])
@@ -1072,6 +1132,7 @@ def splice_1D(
     size_large,
     N_large,
     use_nyquist=False,
+    tol=0.01,
 ):
     """L,S = Large or Small size
     l,s = large or small number of particles/resolution elements
@@ -1081,7 +1142,7 @@ def splice_1D(
         knyq_L = N_large * np.pi / size_large
         k_max = knyq_L / 4
     else:
-        k_max = compute_k_extremums_1D(power_Ll, power_Sl, power_Ss)
+        k_max = compute_k_extremums_1D(power_Ll, power_Sl, power_Ss, tol=tol)
     power = []
     k_array = []
     error = None
@@ -1144,6 +1205,7 @@ def splice_3D(
     N_large,
     use_nyquist=False,
     impose_kmin_coeff=None,
+    tol=0.01,
 ):
     """L,S = Large or Small size
     l,s = large or small number of particles/resolution elements
@@ -1156,7 +1218,7 @@ def splice_3D(
         knyq_L = N_large * np.pi / size_large
         k_max = knyq_L / 4
     else:
-        k_max_array = compute_k_extremums(power_Ll, power_Sl, power_Ss)
+        k_max_array = compute_k_extremums(power_Ll, power_Sl, power_Ss, tol=tol)
         k_max = np.min(k_max_array)
     mu_value = []
     power = []
