@@ -16,9 +16,13 @@ Description :
 #############################################################################
 
 
-import logging, time
-import numpy as np
+import logging
+import multiprocessing as mp
+import time
+from functools import partial
 
+import h5py
+import numpy as np
 
 #############################################################################
 #############################################################################
@@ -179,3 +183,98 @@ def error_estimator_computed_epsilon(power, **kwargs):
     if bin_count is None:
         raise KeyError("Need bin_count")
     return bin_count + epsilon * power
+
+
+def bin_ndarray(ndarray, new_shape, operation="mean"):
+    """
+    From : https://stackoverflow.com/questions/8090229/resize-with-averaging-or-rebin-a-numpy-2d-array/29042041
+    Bins an ndarray in all axes based on the target shape, by summing or
+    averaging.
+    Number of output dimensions must match number of input dimensions.
+    Example
+    -------
+    >>> m = np.arange(0,100,1).reshape((10,10))
+    >>> n = bin_ndarray(m, new_shape=(5,5), operation='sum')
+    >>> print(n)
+    [[ 22  30  38  46  54]
+    [102 110 118 126 134]
+    [182 190 198 206 214]
+    [262 270 278 286 294]
+    [342 350 358 366 374]]
+    """
+    if not operation.lower() in ["sum", "mean", "average", "avg", "gauss"]:
+        raise ValueError("Operation {} not supported.".format(operation))
+    if ndarray.ndim != len(new_shape):
+        raise ValueError("Shape mismatch: {} -> {}".format(ndarray.shape, new_shape))
+    compression_pairs = [(d, c // d) for d, c in zip(new_shape, ndarray.shape)]
+    flattened = [l for p in compression_pairs for l in p]
+    ndarray = ndarray.reshape(flattened)
+    for i in range(len(new_shape)):
+        if operation.lower() == "sum":
+            ndarray = ndarray.sum(-1 * (i + 1))
+        elif operation.lower() in ["mean", "average", "avg"]:
+            ndarray = ndarray.mean(-1 * (i + 1))
+        elif operation.lower() in ["gauss"]:
+            if i != 0:
+                raise KeyError("gaussian mean is not available for dim higher than 1")
+            from scipy import signal
+
+            newndarray = np.zeros(new_shape)
+            gaussian_weights = signal.gaussian(
+                int(ndarray.shape[1]), int(ndarray.shape[1]) / 4
+            )
+            for j in range(len(ndarray)):
+                newndarray[j] = np.average(ndarray[j], axis=0, weights=gaussian_weights)
+            ndarray = newndarray
+    return ndarray
+
+
+def rebin_slice(
+    sim_name,
+    new_shape_slice,
+    index_rescaling,
+    index,
+    operation="mean",
+    first_field="derived_fields",
+    second_field="tau_red",
+):
+    print("Treating ", index)
+    sim = h5py.File(sim_name)
+    full_slice = sim[first_field][second_field][
+        index * index_rescaling : (index + 1) * index_rescaling, :, :
+    ]
+    return bin_ndarray(full_slice, new_shape_slice, operation=operation)
+
+
+def rebin_simulation(
+    sim_name,
+    index_rescaling,
+    operation="mean",
+    number_worker=1,
+    first_field="derived_fields",
+    second_field="tau_red",
+):
+    sim = h5py.File(sim_name)
+    shape_sim = sim["domain"].attrs["shape"]
+    shape_rebinned_field = (shape_sim / index_rescaling).astype(int)
+    rebinned_field = np.zeros(shape_rebinned_field)
+    new_shape_slice = (1, shape_rebinned_field[1], shape_rebinned_field[2])
+    func = partial(
+        rebin_slice,
+        sim_name,
+        new_shape_slice,
+        index_rescaling,
+        operation=operation,
+        first_field=first_field,
+        second_field=second_field,
+    )
+    if number_worker == 1:
+        for i in range(shape_rebinned_field[0]):
+            print("Treating ", i)
+            rebinned_field[i, :, :] = func(i)
+    else:
+
+        with mp.Pool(number_worker) as p:
+            results = p.map(func, np.arange(shape_rebinned_field[0]))
+        rebinned_field = np.array(results)
+    return rebinned_field
