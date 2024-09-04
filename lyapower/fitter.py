@@ -1,11 +1,12 @@
+import os
+import pickle
+
 import numpy as np
-import os, pickle
-from iminuit import Minuit
 import scipy.interpolate
+from iminuit import Minuit
 from scipy import integrate
-from lyapower import power_spectra
-from lyapower import CLASS
-from lyapower import utils_fitter
+
+from lyapower import CLASS, power_spectra, utils_fitter
 
 
 def read_pfkmu_hdf5(
@@ -251,7 +252,7 @@ def Pf_model(
                 integrand_kmu = integrand(kmu)
                 Pf_integrated = np.array(
                     [
-                        integrate.simps(integrand_kmu[i], x=kmu[1][i])
+                        integrate.simpson(integrand_kmu[i], x=kmu[1][i])
                         / (mu_next_bin[i] - mu[i])
                         for i in range(len(k))
                     ]
@@ -304,7 +305,7 @@ def Pf_model(
                 integrand_kmu = integrand(kmu)
                 Pf_integrated = np.array(
                     [
-                        integrate.simps(integrand_kmu[i], x=kmu[1][i])
+                        integrate.simpson(integrand_kmu[i], x=kmu[1][i])
                         / (mu_next_bin[i] - mu[i])
                         for i in range(len(k))
                     ]
@@ -369,7 +370,7 @@ def Pf_model(
 
                 Pf_integrated = np.array(
                     [
-                        integrate.simps(integrand_kmu[i], x=kmu[1][i])
+                        integrate.simpson(integrand_kmu[i], x=kmu[1][i])
                         / (mu_next_bin[i] - mu[i])
                         for i in range(len(k))
                     ]
@@ -411,7 +412,7 @@ def Pf_model(
                 integrand_kmu = integrand(kmu)
                 Pf_integrated = np.array(
                     [
-                        integrate.simps(integrand_kmu[i], x=kmu[1][i])
+                        integrate.simpson(integrand_kmu[i], x=kmu[1][i])
                         / (mu_next_bin[i] - mu[i])
                         for i in range(len(k))
                     ]
@@ -809,8 +810,7 @@ def compute_kna(minuit, power_l, eps, nloopmax=1000):
     n = 0
     while (diff > eps) & (n < nloopmax):
         knai2 = (
-            ((2 * np.pi) ** 2 * kv**av * np.log(1 + beta))
-            / (q1 * power_l_interp(knai))
+            ((2 * np.pi) ** 2 * kv**av * np.log(1 + beta)) / (q1 * power_l_interp(knai))
         ) ** (1 / (3 + av))
         diff = abs(knai2 - knai)
         knai = knai2
