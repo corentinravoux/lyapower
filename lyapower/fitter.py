@@ -668,6 +668,8 @@ def prepare_data(
         power_l, power_l_no_bao = Pl_cosmoprimo(power_f.k_array[0], class_dict, z_simu)
     else:
         power_l = read_pk(pk_file, power_weighted=power_weighted)
+    if use_wavenumber_centers:
+        power_l.edge_stored = True
 
     power_l_rebin = rebin_matter_power(
         power_l.power_array, power_l.k_array, power_f.k_array[0]
