@@ -1205,25 +1205,39 @@ def splice_3D(
     N_large,
     use_nyquist=False,
     impose_kmin_coeff=None,
+    impose_kmin=None,
+    impose_kmax=None,
     tol=0.01,
+    power_pwk_Ll=None,
+    power_pwk_Sl=None,
 ):
     """L,S = Large or Small size
     l,s = large or small number of particles/resolution elements
     splice the Ll box, using resolved Sl box and splicing Ss box"""
-    if impose_kmin_coeff is None:
-        kmin_S = 2 * np.pi / size_small
+    if impose_kmin is not None:
+        kmin_S = impose_kmin
     else:
-        kmin_S = impose_kmin_coeff * 2 * np.pi / size_small
-    if use_nyquist:
-        knyq_L = N_large * np.pi / size_large
-        k_max = knyq_L / 4
+        if impose_kmin_coeff is None:
+            kmin_S = 2 * np.pi / size_small
+        else:
+            kmin_S = impose_kmin_coeff * 2 * np.pi / size_small
+    if impose_kmax is not None:
+        k_max = impose_kmax
     else:
-        k_max_array = compute_k_extremums(power_Ll, power_Sl, power_Ss, tol=tol)
-        k_max = np.min(k_max_array)
+        if use_nyquist:
+            knyq_L = N_large * np.pi / size_large
+            k_max = knyq_L / 4
+        else:
+            k_max_array = compute_k_extremums(power_Ll, power_Sl, power_Ss, tol=tol)
+            k_max = np.min(k_max_array)
     mu_value = []
     power = []
     k_array = []
     error = None
+    if power_pwk_Ll is not None:
+        k_array_pwk = []
+        mu_array_pwk = []
+
     if (power_Ll.error_array is not None) & (power_Sl.error_array is not None):
         error = []
     mu_bins = np.unique(power_Ll.k_array[1])
@@ -1231,6 +1245,9 @@ def splice_3D(
         power_mu, k_array_mu = [], []
         if error is not None:
             error_mu = []
+        if power_pwk_Ll is not None:
+            k_array_pwk_mu = []
+            mu_array_pwk_mu = []            
         mask_mu_Ll = power_Ll.k_array[1] == mu_bins[i]
         mask_mu_Sl = power_Sl.k_array[1] == mu_bins[i]
         mask_mu_Ss = power_Ss.k_array[1] == mu_bins[i]
@@ -1252,6 +1269,10 @@ def splice_3D(
             * (power_Sl_interp(kmin_S) / power_Ss_interp(kmin_S))
         )
         k_array_mu.append(power_Ll.k_array[0][mask_mu_Ll][mask_k_Ll])
+        if power_pwk_Ll is not None:
+            k_array_pwk_mu.append(power_pwk_Ll.k_array[0][mask_mu_Ll][mask_k_Ll])
+            mu_array_pwk_mu.append(power_pwk_Ll.k_array[1][mask_mu_Ll][mask_k_Ll])
+
         if error is not None:
             error_mu.append(power_Ll.error_array[mask_mu_Ll][mask_k_Ll])
 
@@ -1265,6 +1286,10 @@ def splice_3D(
             * (power_Sl_interp(k) / power_Ss_interp(k))
         )
         k_array_mu.append(k)
+        if power_pwk_Ll is not None:
+            k_array_pwk_mu.append(power_pwk_Ll.k_array[0][mask_mu_Ll][mask_k_Ll])
+            mu_array_pwk_mu.append(power_pwk_Ll.k_array[1][mask_mu_Ll][mask_k_Ll])
+
         if error is not None:
             error_mu.append(power_Ll.error_array[mask_mu_Ll][mask_k_Ll])
 
@@ -1275,29 +1300,48 @@ def splice_3D(
             * (power_Ll_interp(k_max) / power_Ss_interp(k_max))
         )
         k_array_mu.append(power_Sl.k_array[0][mask_mu_Sl][mask_k_Sl])
+        if power_pwk_Ll is not None:
+            k_array_pwk_mu.append(power_pwk_Sl.k_array[0][mask_mu_Sl][mask_k_Sl])
+            mu_array_pwk_mu.append(power_pwk_Sl.k_array[1][mask_mu_Sl][mask_k_Sl])
+
         if error is not None:
             error_mu.append(power_Sl.error_array[mask_mu_Sl][mask_k_Sl])
             error_mu = np.concatenate(error_mu, axis=0)
         power_mu = np.concatenate(power_mu, axis=0)
         k_array_mu = np.concatenate(k_array_mu, axis=0)
-
         power.append(power_mu)
         k_array.append(k_array_mu)
+        if power_pwk_Ll is not None:
+            k_array_pwk_mu = np.concatenate(k_array_pwk_mu, axis=0)
+            mu_array_pwk_mu = np.concatenate(mu_array_pwk_mu, axis=0)
+            k_array_pwk.append(k_array_pwk_mu)
+            mu_array_pwk.append(mu_array_pwk_mu)
         if error is not None:
             error.append(error_mu)
 
     power_spliced = np.array(
         [power[i][j] for j in range(len(power[i])) for i in range(len(mu_value))]
     )
-    k_spliced = np.transpose(
-        np.array(
-            [
-                [k_array[i][j], mu_value[i]]
-                for j in range(len(power[i]))
-                for i in range(len(mu_value))
-            ]
+    if power_pwk_Ll is not None:
+        k_spliced = np.transpose(
+            np.array(
+                [
+                    [k_array_pwk[i][j], mu_array_pwk[i][j]]
+                    for j in range(len(power[i]))
+                    for i in range(len(mu_value))
+                ]
+            )
         )
-    )
+    else:
+        k_spliced = np.transpose(
+            np.array(
+                [
+                    [k_array[i][j], mu_value[i]]
+                    for j in range(len(power[i]))
+                    for i in range(len(mu_value))
+                ]
+            )
+        )
     error_spliced = None
     if error is not None:
         error_spliced = np.array(
