@@ -5,7 +5,7 @@ Date : 17/05/2019
 
 Author: Corentin Ravoux
 
-Description : 
+Description :
 """
 
 
@@ -237,12 +237,15 @@ def rebin_slice(
     operation="mean",
     first_field="derived_fields",
     second_field="tau_red",
+    transform=None,
 ):
     print("Treating ", index)
     sim = h5py.File(sim_name)
     full_slice = sim[first_field][second_field][
         index * index_rescaling : (index + 1) * index_rescaling, :, :
     ]
+    if transform is not None:
+        full_slice = transform(full_slice)
     return bin_ndarray(full_slice, new_shape_slice, operation=operation)
 
 
@@ -253,12 +256,17 @@ def rebin_simulation(
     number_worker=1,
     first_field="derived_fields",
     second_field="tau_red",
+    transform_name=None,
 ):
     sim = h5py.File(sim_name)
     shape_sim = sim["domain"].attrs["shape"]
     shape_rebinned_field = (shape_sim / index_rescaling).astype(int)
     rebinned_field = np.zeros(shape_rebinned_field)
     new_shape_slice = (1, shape_rebinned_field[1], shape_rebinned_field[2])
+    if transform_name == "exp":
+        transform = lambda x: np.exp(-x)
+    else:
+        transform = None
     func = partial(
         rebin_slice,
         sim_name,
@@ -267,6 +275,7 @@ def rebin_simulation(
         operation=operation,
         first_field=first_field,
         second_field=second_field,
+        transform=transform,
     )
     if number_worker == 1:
         for i in range(shape_rebinned_field[0]):
