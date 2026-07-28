@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""Launcher: plot the fit of the Arinyo model to a single gimlet P3D file.
+
+Edit the file paths at the top, then run (:mod:`lyapower.fitter`).
+"""
 from lyapower import fitter
 import glob, os
 from matplotlib.lines import Line2D

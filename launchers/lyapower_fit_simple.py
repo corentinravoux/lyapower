@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""Launcher: fit the Arinyo model to a single gimlet P3D file.
+
+Edit ``name_p3d_file`` and the fit settings at the top, then run
+(:mod:`lyapower.fitter`).
+"""
 from lyapower import fitter
 
 

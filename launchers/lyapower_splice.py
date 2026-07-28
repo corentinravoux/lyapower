@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""Launcher: splice multiple-resolution simulation boxes into one P3D.
+
+Edit the paths and splicing settings at the top, then run. Combines the
+low- and high-resolution power spectra via :mod:`lyapower.power_spectra`
+splicing (and fits with :mod:`lyapower.fitter`).
+"""
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 from lyapower import fitter
 import glob, os
 from lyapower import power_spectra
