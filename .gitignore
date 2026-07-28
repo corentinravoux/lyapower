@@ -144,3 +144,6 @@ lyavoid.egg-info/
 build/
 dist/
 
+
+# MkDocs build output
+site/
