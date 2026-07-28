@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""Launcher: fit the Lyman-alpha P3D Arinyo model over a grid of simulations.
+
+Edit the file paths and fit configuration at the top, then run. Drives the
+full fit workflow of :mod:`lyapower.fitter`.
+"""
 from lyapower import fitter
 import glob, os, pickle
 

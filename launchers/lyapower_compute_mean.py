@@ -1,3 +1,8 @@
+"""Launcher: compute mean gimlet power spectra over simulation outputs.
+
+Edit the paths and binning at the top, then run. Uses
+:mod:`lyapower.power_spectra` to average the gimlet P(k)/P(k,mu) files.
+"""
 from lyapower import power_spectra
 import glob, os
 

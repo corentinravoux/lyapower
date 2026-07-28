@@ -1,7 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Created on Fri Jul 12 14:12:40 2019
+"""Linear power spectra and transfer functions from CLASS / cosmoprimo.
+
+Wraps the Boltzmann code CLASS (via ``classy``) in :class:`MyClass` to compute
+and write linear matter power spectra ``P(k)`` and transfer functions ``T_i(k)``
+in the CLASS or CAMB conventions (as needed by MP-Gadget / MP-Genic / 2LPT /
+CosmicIC initial-condition codes), with helpers for grid scans and massive
+neutrinos. :class:`CosmoprimoInterface` provides the same linear ``P(k)`` (and
+its no-wiggle version) through the ``cosmoprimo`` façade.
+
+Convention: wavenumber ``k`` in h/Mpc, power spectrum in ``(h^-1 Mpc)^3``.
 
 @author: cravoux
 """
@@ -39,7 +47,18 @@ header_pk_camb = """ Power spectrum in the camb format (in h3.Mpc-3) at redshift
 
 
 class MyClass(object):
+    """A configured CLASS model producing power spectra and transfer functions."""
+
     def __init__(self, pwd, settings, hierarchy="EQUI", class_version="public"):
+        """Instantiate and configure the underlying CLASS model.
+
+        Args:
+            pwd (str): Working directory for outputs.
+            settings (dict): CLASS input parameters.
+            hierarchy (str, optional): Neutrino mass hierarchy label.
+            class_version (str, optional): ``"public"`` (``classy``) or
+                ``"pk1D"`` (``classy_pk1D``).
+        """
         if class_version == "public":
             from classy import Class
         elif class_version == "pk1D":
@@ -55,6 +74,7 @@ class MyClass(object):
         self.hierarchy = hierarchy
 
     def define_output_format(self):
+        """Set ``self.output_format`` from the settings (default ``"class"``)."""
         if "format" not in self.settings.keys():
             self.output_format = "class"
         else:
@@ -177,6 +197,21 @@ class MyClass(object):
     def write_pk(
         self, name, z, kmin=-4, kmax=3, nb_points=2000, output=True, header_output=True, verbose=True
     ):
+        """Compute and (optionally) write the linear power spectrum P(k).
+
+        Args:
+            name (str): Output file base name.
+            z (float): Redshift.
+            kmin, kmax (float, optional): log10 wavenumber bounds (h/Mpc).
+            nb_points (int, optional): Number of k samples.
+            output (bool, optional): Write the ``pk_{name}_z{z}.dat`` file.
+            header_output (bool, optional): Include a descriptive header.
+            verbose (bool, optional): Print the cosmology summary.
+
+        Returns:
+            tuple: ``(Power, sigma_8)`` — an ``(N, 2)`` ``[k, P(k)]`` array and
+            sigma_8.
+        """
         if self.output_format == "class":
             (k_space, Pk, sigma_8) = self.compute_power_spectrum(
                 z, kmin=kmin, kmax=kmax, nb_points=nb_points, verbose=verbose
@@ -203,6 +238,17 @@ class MyClass(object):
         return (Power, sigma_8)
 
     def write_tk(self, name, z, output=True, header_output=True):
+        """Compute and (optionally) write the transfer functions T_i(k).
+
+        Args:
+            name (str): Output file base name.
+            z (float): Redshift.
+            output (bool, optional): Write the ``tk_{name}_z{z}.dat`` file.
+            header_output (bool, optional): Include a descriptive header.
+
+        Returns:
+            numpy.ndarray: The transfer-function table (CLASS or CAMB format).
+        """
         if self.output_format == "class":
             Transfer_dict = self.model.get_transfer(z, output_format="class")
             Transfer = np.stack([Tk for key, Tk in Transfer_dict.items()], axis=1)
@@ -236,6 +282,18 @@ class MyClass(object):
     def compute_power_spectrum(
         self, z, kmin=-4, kmax=3, nb_points=2000, k_array=None, verbose=True
     ):
+        """Evaluate the linear power spectrum on a k-grid (h-normalised).
+
+        Args:
+            z (float): Redshift.
+            kmin, kmax (float, optional): log10 wavenumber bounds (h/Mpc).
+            nb_points (int, optional): Number of k samples (if ``k_array`` None).
+            k_array (numpy.ndarray, optional): Explicit k grid (h/Mpc).
+            verbose (bool, optional): Print the cosmology summary.
+
+        Returns:
+            tuple: ``(k_space, Pk, sigma_8)`` with ``Pk`` in ``(h^-1 Mpc)^3``.
+        """
         if k_array is None:
             k_space = np.logspace(kmin, kmax, num=nb_points)
         else:
@@ -263,6 +321,17 @@ class MyClass(object):
         return (k_space, Pk, sigma_8)
 
     def interp_to_equidistant_log_space_camb_format(self, Transfer):
+        """Resample a transfer-function table onto a log-equidistant k grid.
+
+        Required by the CAMB output format (2LPT / CosmicIC expect equidistant
+        log-k).
+
+        Args:
+            Transfer (numpy.ndarray): Transfer table (first column is k).
+
+        Returns:
+            numpy.ndarray: The resampled table.
+        """
         k_space = Transfer[:, 0]
         k_log_space = np.logspace(
             *(np.log10(k_space[[0, -1]])) * (1 - 1e-5), len(k_space)
@@ -274,34 +343,87 @@ class MyClass(object):
         return Transfer
 
     def sigmaR_all_species_at(self, R, z):
+        """Compute sigma(R, z) over all species.
+
+        Args:
+            R (float): Smoothing radius (Mpc/h).
+            z (float): Redshift.
+
+        Returns:
+            float: The RMS density fluctuation sigma(R, z).
+        """
         self.model.compute()
         return self.model.sigma(R / self.model.h(), z)
 
     def free_structure(self):
+        """Free the CLASS internal structures (``struct_cleanup``)."""
         self.model.struct_cleanup()
 
     def close_class(self):
+        """Empty the CLASS model (release its parameters)."""
         self.model.empty()
 
     def get_omeganu_from_mass(self, mass):
+        """Convert a summed neutrino mass (eV) to ``omega_nu = m / (93.14 h^2)``.
+
+        Args:
+            mass (float): Summed neutrino mass (eV).
+
+        Returns:
+            float: ``omega_nu`` (physical density parameter).
+        """
         return mass / (93.14 * (self.model.h()) ** 2)
 
     def get_mass_from_omeganu(self, omeganu):
+        """Convert ``omega_nu`` back to a summed neutrino mass (eV).
+
+        Args:
+            omeganu (float): Physical neutrino density parameter.
+
+        Returns:
+            float: Summed neutrino mass (eV).
+        """
         return omeganu * (93.14) * (self.model.h()) ** 2
 
 
 class CosmoprimoInterface:
+    """Linear power spectra via the cosmoprimo façade (CLASS engine)."""
+
     def __init__(self, pwd, settings):
+        """Store the working directory and cosmology settings.
+
+        Args:
+            pwd (str): Working directory.
+            settings (dict): Cosmology parameters for cosmoprimo.
+        """
         self.pwd = pwd
         self.settings = settings
 
     def Pl_class_cosmoprimo(self, k_array, z):
+        """Linear matter power spectrum from cosmoprimo (CLASS engine).
+
+        Args:
+            k_array (numpy.ndarray): Wavenumbers (h/Mpc).
+            z (float): Redshift.
+
+        Returns:
+            numpy.ndarray: ``P(k, z)`` in ``(h^-1 Mpc)^3``.
+        """
         cosmo = Cosmology(engine="class", **self.settings)
         fo = Fourier(cosmo, engine="class")
         pk = fo.pk_interpolator()
         return pk(k_array, z=z)
 
     def Pl_class_cosmoprimo_no_wiggle(self, k_array, z):
+        """No-wiggle (BAO-smoothed) linear power spectrum from cosmoprimo.
+
+        Args:
+            k_array (numpy.ndarray): Wavenumbers (h/Mpc).
+            z (float): Redshift.
+
+        Returns:
+            numpy.ndarray: The BAO-filtered ``P(k, z)`` in ``(h^-1 Mpc)^3``.
+        """
         cosmo = Cosmology(engine="class", **self.settings)
         fo = Fourier(cosmo, engine="class")
         pk = fo.pk_interpolator()

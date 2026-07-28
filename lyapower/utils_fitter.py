@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Date : 17/05/2019
+"""Utilities for the lyapower fitter: logging, error models and rebinning.
+
+Provides a small logging helper (:class:`Logger`), matplotlib/LaTeX number
+formatting, the pluggable power-spectrum error estimators used by the fits
+(``uncorrelated`` / ``constant`` / ``computed`` / ``computed_epsilon``), and
+n-dimensional array rebinning helpers (including on-disk rebinning of a Nyx/HDF5
+simulation field).
 
 Author: Corentin Ravoux
-
-Description :
 """
 
 
@@ -34,12 +37,30 @@ lambdaLy = 1215.673123130217
 
 
 def create_log(name="Python_Report", log_level="info"):
+    """Create and initialise a stream :class:`Logger`.
+
+    Args:
+        name (str, optional): Logger name.
+        log_level (str, optional): ``"info"``, ``"debug"`` or ``"warning"``.
+
+    Returns:
+        Logger: The configured logger.
+    """
     log = Logger(name=name, log_level=log_level)
     log.setup_logging()
     return log
 
 
 def create_report_log(name="Python_Report", log_level="info"):
+    """Create a :class:`Logger` that writes to a report file.
+
+    Args:
+        name (str, optional): Output report file name.
+        log_level (str, optional): ``"info"``, ``"debug"`` or ``"warning"``.
+
+    Returns:
+        Logger: The configured file logger.
+    """
     log = Logger(name=name, log_level=log_level)
     log.setup_report_logging()
     return log
@@ -49,7 +70,15 @@ _logging_handler = None
 
 
 class Logger(object):
+    """Thin wrapper over the standard :mod:`logging` module."""
+
     def __init__(self, name="Python_Report", log_level="info"):
+        """Store the logger name and level.
+
+        Args:
+            name (str, optional): Logger / report-file name.
+            log_level (str, optional): ``"info"``, ``"debug"`` or ``"warning"``.
+        """
         self.name = name
         self.log_level = log_level
 
@@ -96,6 +125,7 @@ class Logger(object):
         logger.setLevel(levels[self.log_level])
 
     def setup_report_logging(self):
+        """Configure logging to write to the report file ``self.name``."""
         levels = {
             "info": logging.INFO,
             "debug": logging.DEBUG,
@@ -110,6 +140,12 @@ class Logger(object):
 
     @staticmethod
     def add(line, level="info"):
+        """Log a line at the given level.
+
+        Args:
+            line (str): Message to log.
+            level (str, optional): ``"info"``, ``"warning"`` or ``"debug"``.
+        """
         if level == "info":
             logging.info(line)
         if level == "warning":
@@ -119,6 +155,7 @@ class Logger(object):
 
     @staticmethod
     def close():
+        """Shut down the logging system."""
         logging.shutdown()
 
 
@@ -139,10 +176,34 @@ def latex_float(float_input, decimals_input="{0:.2g}"):
 
 
 def return_key(dictionary, string, default_value):
+    """Return ``dictionary[string]`` if present, else ``default_value``.
+
+    Args:
+        dictionary (dict): Source mapping.
+        string: Key to look up.
+        default_value: Value returned when the key is absent.
+
+    Returns:
+        The value at ``string`` or ``default_value``.
+    """
     return dictionary[string] if string in dictionary.keys() else default_value
 
 
 def error_estimator(power, model="uncorrelated", **kwargs):
+    """Estimate power-spectrum errors with the chosen model.
+
+    Args:
+        power (numpy.ndarray): Power-spectrum values.
+        model (str, optional): ``"uncorrelated"``, ``"constant"``,
+            ``"computed"`` or ``"computed_epsilon"``.
+        **kwargs: Model inputs (``bin_count``, ``epsilon``).
+
+    Returns:
+        numpy.ndarray: The estimated errors.
+
+    Raises:
+        KeyError: If the model name is unknown.
+    """
     if model == "uncorrelated":
         return error_estimator_uncorrelated(power, **kwargs)
     elif model == "constant":
@@ -156,6 +217,18 @@ def error_estimator(power, model="uncorrelated", **kwargs):
 
 
 def error_estimator_uncorrelated(power, **kwargs):
+    """Error assuming uncorrelated bins: ``power * (1/sqrt(N) + epsilon)``.
+
+    Args:
+        power (numpy.ndarray): Power-spectrum values.
+        **kwargs: ``bin_count`` (counts per bin) and ``epsilon`` (floor).
+
+    Returns:
+        numpy.ndarray: The estimated errors.
+
+    Raises:
+        KeyError: If ``bin_count`` or ``epsilon`` is missing.
+    """
     epsilon = return_key(kwargs, "epsilon", None)
     bin_count = return_key(kwargs, "bin_count", None)
     if (bin_count is None) | (epsilon is None):
@@ -164,6 +237,18 @@ def error_estimator_uncorrelated(power, **kwargs):
 
 
 def error_estimator_constant(power, **kwargs):
+    """Error as a constant fraction of the power: ``power * epsilon``.
+
+    Args:
+        power (numpy.ndarray): Power-spectrum values.
+        **kwargs: ``epsilon`` (fractional error).
+
+    Returns:
+        numpy.ndarray: The estimated errors.
+
+    Raises:
+        KeyError: If ``epsilon`` is missing.
+    """
     epsilon = return_key(kwargs, "epsilon", None)
     if epsilon is None:
         raise KeyError("Need bin_count and epsilon")
@@ -171,6 +256,18 @@ def error_estimator_constant(power, **kwargs):
 
 
 def error_estimator_computed(power, **kwargs):
+    """Error taken directly from a precomputed per-bin error array.
+
+    Args:
+        power (numpy.ndarray): Power-spectrum values (unused).
+        **kwargs: ``bin_count`` (here the precomputed errors).
+
+    Returns:
+        numpy.ndarray: The provided ``bin_count`` errors.
+
+    Raises:
+        KeyError: If ``bin_count`` is missing.
+    """
     bin_count = return_key(kwargs, "bin_count", None)
     if bin_count is None:
         raise KeyError("Need bin_count")
@@ -178,6 +275,18 @@ def error_estimator_computed(power, **kwargs):
 
 
 def error_estimator_computed_epsilon(power, **kwargs):
+    """Precomputed error plus a fractional floor: ``bin_count + epsilon*power``.
+
+    Args:
+        power (numpy.ndarray): Power-spectrum values.
+        **kwargs: ``bin_count`` (precomputed errors) and ``epsilon`` (floor).
+
+    Returns:
+        numpy.ndarray: The estimated errors.
+
+    Raises:
+        KeyError: If ``bin_count`` is missing.
+    """
     bin_count = return_key(kwargs, "bin_count", None)
     epsilon = return_key(kwargs, "epsilon", None)
     if bin_count is None:
@@ -239,6 +348,21 @@ def rebin_slice(
     second_field="tau_red",
     transform=None,
 ):
+    """Read and rebin one x-slice of a Nyx/HDF5 simulation field.
+
+    Args:
+        sim_name (str): HDF5 simulation file path.
+        new_shape_slice (tuple[int]): Target shape of the rebinned slice.
+        index_rescaling (int): Number of input x-planes per output plane.
+        index (int): Output slice index.
+        operation (str, optional): Reduction (``"mean"``/``"sum"`` ...).
+        first_field (str, optional): HDF5 group holding the field.
+        second_field (str, optional): HDF5 dataset name.
+        transform (callable, optional): Applied to the slice before rebinning.
+
+    Returns:
+        numpy.ndarray: The rebinned slice.
+    """
     print("Treating ", index)
     sim = h5py.File(sim_name)
     full_slice = sim[first_field][second_field][
@@ -258,6 +382,24 @@ def rebin_simulation(
     second_field="tau_red",
     transform_name=None,
 ):
+    """Rebin a whole Nyx/HDF5 simulation field slice by slice.
+
+    Processes the field one x-slice at a time (optionally in a multiprocessing
+    pool) to keep memory bounded, applying an optional transform first.
+
+    Args:
+        sim_name (str): HDF5 simulation file path.
+        index_rescaling (int): Downsampling factor along each axis.
+        operation (str, optional): Reduction (``"mean"``/``"sum"`` ...).
+        number_worker (int, optional): Number of processes (1 = serial).
+        first_field (str, optional): HDF5 group holding the field.
+        second_field (str, optional): HDF5 dataset name.
+        transform_name (str, optional): ``"exp"`` applies ``exp(-x)`` (tau ->
+            transmitted flux) before rebinning.
+
+    Returns:
+        numpy.ndarray: The rebinned 3D field.
+    """
     sim = h5py.File(sim_name)
     shape_sim = sim["domain"].attrs["shape"]
     shape_rebinned_field = (shape_sim / index_rescaling).astype(int)

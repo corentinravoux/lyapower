@@ -1,3 +1,8 @@
+"""Launcher: fit the Lyman-alpha P3D with the BAO-enabled Arinyo model.
+
+Edit the parameter grids and file paths at the top, then run. Drives the
+BAO-variant fits (via :mod:`lyapower.fitter` and :mod:`lyapower.CLASS`).
+"""
 import glob, os
 from lyapower import fitter, CLASS
 

@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""Launcher: plot fitted Lyman-alpha P3D models over a grid of simulations.
+
+Edit the paths at the top, then run (:mod:`lyapower.fitter` plotting helpers).
+"""
 from lyapower import fitter
 import glob, os
 
