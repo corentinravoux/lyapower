@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using these metadata."
+title: lyapower
+abstract: >-
+  Fit the 3D flux power spectrum of the Lyman-alpha forest from Nyx
+  hydrodynamical simulations (post-processed by gimlet), implementing the
+  Arinyo-i-Prats et al. 2015 non-linear models and the splicing method for
+  combining simulation boxes of different resolution.
+type: software
+authors:
+  - given-names: Corentin
+    family-names: Ravoux
+    email: corentin.ravoux.research@gmail.com
+version: "1.0"
+date-released: 2026-07-29
+license: MIT
+repository-code: "https://github.com/corentinravoux/lyapower"
+url: "https://corentinravoux.github.io/lyapower/"
+doi: 10.5281/zenodo.21653030
+keywords:
+  - cosmology
+  - Lyman-alpha forest
+  - power spectrum
+  - simulations
+  - Nyx
