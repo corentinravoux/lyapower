@@ -1,6 +1,7 @@
 # lyapower
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21653030.svg)](https://doi.org/10.5281/zenodo.21653030)
+[![tests](https://github.com/corentinravoux/lyapower/actions/workflows/tests.yml/badge.svg)](https://github.com/corentinravoux/lyapower/actions/workflows/tests.yml)
 
 Fit the **3D flux power spectrum P₃D(k, μ)** of the Lyman-alpha forest measured
 from **Nyx** hydrodynamical simulations (post-processed by
